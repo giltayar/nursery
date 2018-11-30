@@ -3,5 +3,11 @@
     "enable": false,
     "decoration": false,
   },
-  "mocha.logVerbose": false
+  "mocha.logVerbose": false,
+  "mocha.sideBarOptions": {
+    "lens": false,
+    "decoration": true,
+    "autoUpdateTime": 5000,
+    "showDebugTestStatus": false
+  }
 }

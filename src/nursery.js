@@ -57,6 +57,7 @@ function Nursery() {
           firstRejectedPromise = mutablePromises[i]
           firstRejectedError = err
           firstRejectedError[Nursery.moreErrors] = []
+          abortController.abort()
         } else {
           firstRejectedError[Nursery.moreErrors].push(err)
         }

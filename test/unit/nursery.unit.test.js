@@ -140,4 +140,27 @@ describe('nursery', function() {
       expect(firstDone).to.be.true
     })
   })
+
+  describe('aborting', () => {
+    it('should abort other tasks when one rejects', async () => {
+      let firstDone = false
+      let secondDone = true
+      await expect(
+        (async () => {
+          for await (const nursery of Nursery()) {
+            nursery(
+              p(setTimeout)(20).then(_ =>
+                nursery.signal.aborted ? (firstDone = false) : (firstDone = true),
+              ),
+            )
+            nursery(p(setTimeout)(30).then(_ => (secondDone = true)))
+            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+          }
+        })(),
+      ).to.eventually.be.rejectedWith('rejected!')
+
+      expect(firstDone).to.be.false
+      expect(secondDone).to.be.true
+    })
+  })
 })
