@@ -1,0 +1,43 @@
+{
+  "name": "nursery-rhymes",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/nursery.js",
+  "engines": {
+    "node": ">=10.3.0"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "#",
+    "test": "npm run test:mocha && npm run eslint",
+    "test:mocha": "mocha --no-timeouts --exit --trace-warnings 'test/unit/*.test.js' 'test/it/*.test.js' 'test/e2e/*.test.js'",
+    "eslint": "eslint '**/*.js'",
+    "prepublishOnly": "npm version patch"
+  },
+  "keywords": [
+    "nursery",
+    "javascript",
+    "async",
+    "concurrency"
+  ],
+  "author": "Gil Tayar <gil.tayar@applitools.com>",
+  "license": "UNLICENSED",
+  "repository": {
+    "url": "https://github.com/applitools/rendering-grid",
+    "type": "git"
+  },
+  "dependencies": {
+    "abort-controller": "^1.0.2"
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "eslint": "^5.0.1",
+    "eslint-plugin-mocha-no-only": "^1.0.0",
+    "eslint-plugin-node": "^6.0.1",
+    "eslint-plugin-prettier": "^2.6.1",
+    "mocha": "^5.2.0",
+    "prettier": "^1.5.2"
+  }
+}
