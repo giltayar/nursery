@@ -43,7 +43,9 @@ describe('nursery', function() {
       for await (const nursery of Nursery()) {
         nursery.run(() => p(setTimeout)(10).then(() => (firstDone = true)))
         nursery.run(() => p(setTimeout)(20).then(() => (secondDone = true)))
-        if (Math.floor(Math.PI) === 3) break // the `if` is to that static analyzers dont bothers me with unreachable code
+
+        // the `if` is to that static analyzers dont bothers me with unreachable code
+        if (Math.floor(Math.PI) === 3) break
 
         nursery.run(() => p(setTimeout)(10).then(() => (thirdDone = true)))
       }
@@ -113,6 +115,22 @@ describe('nursery', function() {
             nursery(p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))))
             nursery(p(setTimeout)(20).then(_ => (firstDone = true)))
             nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+          }
+        })().then(),
+      ).to.eventually.be.rejectedWith('rejected!')
+
+      expect(firstDone).to.be.true
+    })
+
+    it('should wait for other (rejected) tasks before throwing exception even if there is a break', async () => {
+      let firstDone = false
+      await expect(
+        (async () => {
+          for await (const nursery of Nursery()) {
+            nursery(p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nursery(p(setTimeout)(20).then(_ => (firstDone = true)))
+            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            break
           }
         })().then(),
       ).to.eventually.be.rejectedWith('rejected!')

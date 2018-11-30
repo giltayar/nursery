@@ -17,19 +17,24 @@ function Nursery() {
           if (loopI === 1) {
             return Promise.resolve({value: run})
           } else if (loopI === 2) {
-            return waitForAllPromisesEvenIfOneThrows(babyPromises).then(() =>
-              Promise.resolve({done: true}),
-            )
+            return finalize()
           }
         },
         return() {
-          return Promise.all(babyPromises)
-        },
-        throw() {
-          return abortController.abort()
+          return finalize()
         },
       }
     },
+  }
+
+  function run(asyncFunc) {
+    const promise = Promise.resolve().then(() =>
+      asyncFunc.then ? asyncFunc : asyncFunc({abortController, signal}),
+    )
+
+    babyPromises = babyPromises.concat(promise)
+
+    return promise
   }
 
   async function waitForAllPromisesEvenIfOneThrows(promises) {
@@ -68,14 +73,8 @@ function Nursery() {
     if (firstRejectedPromise) return firstRejectedPromise
   }
 
-  function run(asyncFunc) {
-    const promise = Promise.resolve().then(() =>
-      asyncFunc.then ? asyncFunc : asyncFunc({abortController, signal}),
-    )
-
-    babyPromises = babyPromises.concat(promise)
-
-    return promise
+  async function finalize() {
+    return waitForAllPromisesEvenIfOneThrows(babyPromises).then(() => Promise.resolve({done: true}))
   }
 }
 
