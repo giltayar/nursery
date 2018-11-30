@@ -7,13 +7,15 @@ function Nursery() {
   const signal = abortController.signal
   let loopI = 0
 
+  Object.assign(run, {abortController, signal, run})
+
   return {
     [Symbol.asyncIterator]() {
       return {
         next() {
           ++loopI
           if (loopI === 1) {
-            return Promise.resolve({value: {abortController, signal, run}})
+            return Promise.resolve({value: run})
           } else if (loopI === 2) {
             return Promise.all(babyPromises).then(() => Promise.resolve({done: true}))
           }
@@ -29,7 +31,9 @@ function Nursery() {
   }
 
   function run(asyncFunc) {
-    const promise = Promise.resolve().then(() => asyncFunc({abortController, signal}))
+    const promise = Promise.resolve().then(() =>
+      asyncFunc.then ? asyncFunc : asyncFunc({abortController, signal}),
+    )
 
     babyPromises = babyPromises.concat(promise)
 

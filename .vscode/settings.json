@@ -1,0 +1,7 @@
+{
+  "mocha.coverage": {
+    "enable": false,
+    "decoration": false,
+  },
+  "mocha.logVerbose": false
+}
