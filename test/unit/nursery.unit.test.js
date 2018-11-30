@@ -181,4 +181,46 @@ describe('nursery', function() {
       expect(secondDone).to.be.true
     })
   })
+
+  describe('retries', () => {
+    it('should retry and succeed', async () => {
+      let firstCount = 0
+      let runTimes = 0
+
+      for await (const nursery of Nursery({retries: 2})) {
+        ++runTimes
+        nursery.run(() =>
+          p(setTimeout)(10).then(() => {
+            firstCount += 1
+            if (firstCount <= 2) throw new Error('should be retried')
+          }),
+        )
+      }
+
+      expect(firstCount).to.equal(3)
+      expect(runTimes).to.equal(3)
+    })
+
+    it('should retry and fail', async () => {
+      let firstCount = 0
+      let runTimes = 0
+
+      await expect(
+        (async () => {
+          for await (const nursery of Nursery({retries: 4})) {
+            ++runTimes
+            nursery.run(() =>
+              p(setTimeout)(10).then(() => {
+                firstCount += 1
+                throw new Error('should finally be error')
+              }),
+            )
+          }
+        })(),
+      ).to.eventually.rejectedWith('should finally be error')
+
+      expect(firstCount).to.equal(5)
+      expect(runTimes).to.equal(5)
+    })
+  })
 })

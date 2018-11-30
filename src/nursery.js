@@ -1,22 +1,26 @@
 'use strict'
 const AbortController = require('abort-controller')
 
-function Nursery() {
+function Nursery({retries = 0} = {}) {
   let babyPromises = []
   const abortController = new AbortController()
   const signal = abortController.signal
-  let loopI = 0
 
   Object.assign(run, {abortController, signal, run})
 
   return {
     [Symbol.asyncIterator]() {
       return {
+        loopI: 0,
         next() {
-          ++loopI
-          if (loopI === 1) {
+          ++this.loopI
+          if (this.loopI === 1) {
             return Promise.resolve({value: run})
-          } else if (loopI === 2) {
+          } else if (this.loopI >= 2 && retries > 0) {
+            return finalize().catch(err =>
+              retries-- === 0 ? Promise.reject(err) : Promise.resolve({value: run}),
+            )
+          } else if (this.loopI >= 2 && retries === 0) {
             return finalize()
           }
         },
@@ -74,7 +78,9 @@ function Nursery() {
   }
 
   async function finalize() {
-    return waitForAllPromisesEvenIfOneThrows(babyPromises).then(() => Promise.resolve({done: true}))
+    return waitForAllPromisesEvenIfOneThrows(babyPromises)
+      .then(() => Promise.resolve({done: true}))
+      .finally(() => (babyPromises = []))
   }
 }
 
