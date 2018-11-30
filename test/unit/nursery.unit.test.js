@@ -1,6 +1,6 @@
 'use strict'
 const {promisify: p} = require('util')
-// const {describe, it} = require('mocha')
+const {describe, it} = require('mocha')
 const {expect} = require('chai')
 
 const Nursery = require('../..')
