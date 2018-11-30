@@ -17,7 +17,9 @@ function Nursery() {
           if (loopI === 1) {
             return Promise.resolve({value: run})
           } else if (loopI === 2) {
-            return Promise.all(babyPromises).then(() => Promise.resolve({done: true}))
+            return waitForAllPromisesEvenIfOneThrows(babyPromises).then(() =>
+              Promise.resolve({done: true}),
+            )
           }
         },
         return() {
@@ -30,6 +32,41 @@ function Nursery() {
     },
   }
 
+  async function waitForAllPromisesEvenIfOneThrows(promises) {
+    const mutablePromises = [...promises]
+    const promisesToBeDoneCount = promises.length
+    let promisesDoneCount = 0
+    let firstRejectedPromise
+    let firstRejectedError
+
+    while (promisesDoneCount < promisesToBeDoneCount) {
+      try {
+        await Promise.all(
+          mutablePromises.map((p, i) =>
+            p.then(v => [undefined, v, i], err => Promise.reject([err, undefined, i])),
+          ),
+        )
+        promisesDoneCount += mutablePromises.length
+      } catch (errOrErrArray) {
+        promisesDoneCount += 1
+        if (!Array.isArray(errOrErrArray)) throw errOrErrArray
+
+        const [err, , i] = errOrErrArray
+
+        if (!firstRejectedPromise) {
+          firstRejectedPromise = mutablePromises[i]
+          firstRejectedError = err
+          firstRejectedError[Nursery.moreErrors] = []
+        } else {
+          firstRejectedError[Nursery.moreErrors].push(err)
+        }
+
+        mutablePromises.splice(i, 1)
+      }
+    }
+    if (firstRejectedPromise) return firstRejectedPromise
+  }
+
   function run(asyncFunc) {
     const promise = Promise.resolve().then(() =>
       asyncFunc.then ? asyncFunc : asyncFunc({abortController, signal}),
@@ -40,5 +77,7 @@ function Nursery() {
     return promise
   }
 }
+
+Nursery.moreErrors = Symbol('Nursery.moreErrors')
 
 module.exports = Nursery
