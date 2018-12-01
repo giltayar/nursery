@@ -229,4 +229,46 @@ describe('nursery', function() {
       expect(runTimes).to.equal(5)
     })
   })
+
+  describe('Nursery with task list', () => {
+    it('should be like Promise.all if no rejections', async () => {
+      expect(await Nursery([Promise.resolve(4), Promise.resolve(2)])).to.eql([4, 2])
+    })
+
+    it('should be like Promise.all if rejections, except it waits for everything like Nursery', async () => {
+      let firstDone = false
+
+      expect(
+        await Nursery([
+          p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))),
+          p(setTimeout)(20).then(_ => (firstDone = true)),
+          p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))),
+        ]).then(v => v, err => err),
+      ).to.satisfy(
+        err =>
+          err.message === 'rejected!' &&
+          err[Nursery.moreErrors].length === 1 &&
+          err[Nursery.moreErrors][0].message === 'rejected again',
+      )
+
+      expect(firstDone).to.be.true
+    })
+
+    it('should support retries', async () => {
+      let taskRunCount = 0
+
+      expect(
+        await Nursery(
+          [
+            () => {
+              taskRunCount += 1
+              return Promise.reject(new Error('error!'))
+            },
+          ],
+          {retries: 4},
+        ).catch(err => err.message),
+      ).to.equal('error!')
+      expect(taskRunCount).to.equal(5)
+    })
+  })
 })

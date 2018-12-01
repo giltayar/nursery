@@ -27,7 +27,7 @@ describe('Code from Readme', function() {
           ['done', 'done'],
           ['aborted', 'after Nursery failed!'],
           ['aborted'],
-          ['first error', 'second error']
+          ['first error', 'second error'],
         ]),
       )
     } finally {

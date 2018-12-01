@@ -1,12 +1,36 @@
 'use strict'
 const AbortController = require('abort-controller')
 
-function Nursery({retries = 0} = {}) {
+function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
+  const optionsArg = !optionsOrTasks || !Array.isArray(optionsOrTasks) ? optionsOrTasks : options
+  const tasksArg = optionsOrTasks && Array.isArray(optionsOrTasks) ? optionsOrTasks : undefined
+
   let babyPromises = []
   const abortController = new AbortController()
   const signal = abortController.signal
 
+  const {retries} = {retries: 0, ...optionsArg}
+  let retriesMutable = retries
+
   Object.assign(run, {abortController, signal, run})
+
+  if (tasksArg) {
+    return (async () => {
+      for (let i = 0; i < retries + 1; ++i) {
+        tasksArg.forEach(run)
+
+        const [err, v] = await waitForAllPromisesEvenIfOneThrows(babyPromises).then(
+          v => [undefined, v],
+          err => [err],
+        )
+
+        if (!err) {
+          return v
+        }
+        if (i === retries) throw err
+      }
+    })()
+  }
 
   return {
     [Symbol.asyncIterator]() {
@@ -16,12 +40,12 @@ function Nursery({retries = 0} = {}) {
           ++this.loopI
           if (this.loopI === 1) {
             return Promise.resolve({value: run})
-          } else if (this.loopI >= 2 && retries > 0) {
-            return finalize().catch(err =>
-              retries-- === 0 ? Promise.reject(err) : Promise.resolve({value: run}),
+          } else if (this.loopI >= 2 && retriesMutable > 0) {
+            return finalizeGenerator().catch(err =>
+              retriesMutable-- === 0 ? Promise.reject(err) : Promise.resolve({value: run}),
             )
-          } else if (this.loopI >= 2 && retries === 0) {
-            return finalize()
+          } else if (this.loopI >= 2 && retriesMutable === 0) {
+            return finalizeGenerator()
           }
         },
         return() {
@@ -36,13 +60,14 @@ function Nursery({retries = 0} = {}) {
       asyncFunc.then ? asyncFunc : asyncFunc({abortController, signal}),
     )
 
-    babyPromises = babyPromises.concat(promise)
+    babyPromises.push(promise)
 
     return promise
   }
 
   async function waitForAllPromisesEvenIfOneThrows(promises) {
     const mutablePromises = [...promises]
+    const babyResults = Array()
     const promisesToBeDoneCount = promises.length
     let promisesDoneCount = 0
     let firstRejectedPromise
@@ -52,7 +77,16 @@ function Nursery({retries = 0} = {}) {
       try {
         await Promise.all(
           mutablePromises.map((p, i) =>
-            p.then(v => [undefined, v, i], err => Promise.reject([err, undefined, i])),
+            p.then(
+              v => {
+                babyResults[i] = v
+                return [undefined, v, i]
+              },
+              err => {
+                babyResults[i] = undefined
+                return Promise.reject([err, undefined, i])
+              },
+            ),
           ),
         )
         promisesDoneCount += mutablePromises.length
@@ -75,12 +109,18 @@ function Nursery({retries = 0} = {}) {
       }
     }
     if (firstRejectedPromise) return firstRejectedPromise
+
+    return babyResults
   }
 
   async function finalize() {
-    return waitForAllPromisesEvenIfOneThrows(babyPromises)
-      .then(() => Promise.resolve({done: true}))
-      .finally(() => (babyPromises = []))
+    return waitForAllPromisesEvenIfOneThrows(babyPromises).finally(() => {
+      babyPromises = []
+    })
+  }
+
+  async function finalizeGenerator() {
+    return finalize().then(() => Promise.resolve({done: true}))
   }
 }
 
