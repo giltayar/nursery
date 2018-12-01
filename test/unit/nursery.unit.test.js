@@ -3,6 +3,8 @@ const {promisify: p} = require('util')
 const {describe = global.describe, it = global.it} = require('mocha')
 const chai = require('chai')
 const {expect} = chai
+const throat = require('throat')
+
 chai.use(require('chai-as-promised'))
 
 const Nursery = require('../..')
@@ -286,6 +288,22 @@ describe('nursery', function() {
         ).catch(err => err.message),
       ).to.equal('error!')
       expect(taskRunCount).to.equal(5)
+    })
+  })
+
+  describe('execution', () => {
+    it('should enable execution via throat function (or any other)', async () => {
+      const results = []
+
+      // `throat(1)` ensures sequential execution
+      for await (const nursery of Nursery({execution: throat(1)})) {
+        nursery(() => p(setTimeout)(20).then(_ => results.push(1)))
+        nursery(() => p(setTimeout)(10).then(_ => results.push(2)))
+        nursery(() => p(setTimeout)(5).then(_ => results.push(3)))
+        nursery(() => p(setTimeout)(30).then(_ => results.push(4)))
+      }
+
+      expect(results).to.eql([1, 2, 3, 4])
     })
   })
 })

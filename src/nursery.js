@@ -9,7 +9,7 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
   const abortController = new AbortController()
   const signal = abortController.signal
 
-  const {retries} = {retries: 0, ...optionsArg}
+  const {retries = 0, execution = f => f()} = optionsArg || {}
   let retriesMutable = retries
 
   Object.assign(nursery, {abortController, signal, run: nursery})
@@ -56,7 +56,9 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
   }
 
   function nursery(asyncFunc) {
-    const promise = Promise.resolve().then(() => (asyncFunc.then ? asyncFunc : asyncFunc(nursery)))
+    const promise = Promise.resolve().then(() =>
+      asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nursery)),
+    )
 
     babyPromises.push(promise)
 
