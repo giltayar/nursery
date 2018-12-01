@@ -157,6 +157,8 @@ describe('nursery', function() {
 
       expect(firstDone).to.be.true
     })
+
+    it('should handle the case of multi-error when the first error is not an object')
   })
 
   describe('aborting', () => {
@@ -180,7 +182,11 @@ describe('nursery', function() {
       expect(firstDone).to.be.false
       expect(secondDone).to.be.true
     })
+
+    it('should handle the case where abortController is used manually')
   })
+
+  describe('tasks that are called with parameters', () => {})
 
   describe('retries', () => {
     it('should retry and succeed', async () => {

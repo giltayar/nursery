@@ -103,6 +103,59 @@ async function main() {
   })()
   // ==> aborted
   // ==> after Nursery failed!
+
+  for await (const nursery of Nursery()) {
+    nursery(delay(10).then(() => console.log('done')))
+    nursery(delay(20).then(() => console.log('done')))
+  }
+  // ==> done
+  // ==> done
+
+  let rejectionCount = 0
+
+  for await (const nursery of Nursery({retries: 1})) {
+    nursery(() => (rejectionCount++ === 0 ? Promise.reject(new Error()) : Promise.resolve(1)))
+    nursery(delay(20).then(() => console.log('done')))
+  }
+  // ==> done
+  // ==> done
+
+  try {
+    for await (const nursery of Nursery()) {
+      nursery(Promise.reject(new Error('failed!')))
+      nursery(
+        delay(10).then(_ =>
+          !nursery.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+        ),
+      )
+    }
+  } catch (err) {
+    console.log('after Nursery', err.message)
+  }
+  // ==> aborted
+  // ==> after Nursery failed
+
+  for await (const nursery of Nursery()) {
+    nursery(delay(10).then(() => nursery.abortController.abort()))
+    nursery(
+      delay(10).then(_ =>
+        !nursery.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+      ),
+    )
+  }
+  // ==> aborted
+
+  try {
+    for await (const nursery of Nursery()) {
+      nursery(Promise.reject(new Error('first error')))
+      nursery(delay(10).then(_ => Promise.reject(new Error('second error'))))
+    }
+  } catch (err) {
+    console.log(err.message)
+    console.log(err[Nursery.moreErrors][0].message)
+  }
+  // ==> first error
+  // ==> second error
 }
 
 module.exports = main().catch(console.log)
