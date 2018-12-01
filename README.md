@@ -36,6 +36,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 // ==> first
 // ==> second
 ```
+
 How is this different from the following using `Promise.all`?
 
 ```js
@@ -257,7 +258,20 @@ TBD
 const Nursery = require('nursery-rhymes')
 ```
 
-The only export is `Nursery`, is a [generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_Generators) of nurseries, destined to be used in a [`for await` loop](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of), thus:
+The only export is `Nursery`, a function that if called with a set of "tasks", returns a promise, thus:
+
+```js
+await Nursery([...listOfPromisesOrFunctionsReturningPromises]))
+```
+
+> A task is either a `Promise` (e.g. `Promise.resolve(42)` or `funcReturningPromise()`) or
+> a function returning a `Promise` (e.g. `() => Promise.resolve(42)` or `funcReturningPromise`).
+> A function returning a `Promise` is sometimes referred to as an **async** function.
+
+If no tasks are passed, calling `Nursery` returns a
+[generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_Generators) of nurseries,
+destined to be used in a
+[`for await` loop](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of), thus:
 
 ```js
 for await (const nursery of Nursery()) {
@@ -267,27 +281,39 @@ for await (const nursery of Nursery()) {
 
 Unless there are retries (see below on how to ask for retries), the body of the loop will run only 1 time.
 
-## Nursery generator
+## Nursery function
 
-* `Nursery([options])`
+* `Nursery([taskList: Array<Promise|Function>], [options: object])`
 
-Returns an **async** generator of `nursery` objects. This generator is commonly used in `for await` loops.
+This function call returns a `Promise` if called with tasks,
+or returns an **async** generator of `nursery` objects (of type `Nursery`) if not.
+This generator is commonly used in `for await` loops.
 
+* `taskList`: optional array of tasks. A task is either a `Promise` or a function returning a `Promise`.
 * `options`: [optional] object with the following properties:
   * `retries`: the number of retries to run the loop body in case of failures. Default: 0
 
-* Returns: an **async** generator commonly used in `for await` loops
+* Returns:
+  * If no `taskLists`: an **async** generator commonly used in `for await` loops.
+    Example (definition of `delay` can be found above):
 
-Example (definition of `delay` can be found above):
+    ```js
+    for await (const nursery of Nursery()) {
+      nursery(delay(10).then(() => console.log('done')))
+      nursery(delay(20).then(() => console.log('done')))
+    }
+    ```
+    In this example, the `for await` loop will wait until the two delays are done.
 
-```js
-for await (const nursery of Nursery()) {
-  nursery(delay(10).then(() => console.log('done')))
-  nursery(delay(20).then(() => console.log('done')))
-}
-```
+  * If `taskList`: a Promise that is almost exactly what `Promise.all` returns. Example:
 
-In this example, the `for await` loop will wait until the two delays are done.
+    ```js
+    await Nursery([
+      nursery(delay(10).then(() => console.log('done')))
+      nursery(delay(20).then(() => console.log('done')))
+    }])
+    ```
+    In this example, the Nursery call will wait until the two delays are done.
 
 Example with retries:
 
@@ -314,28 +340,28 @@ for await (const nursery of Nursery()) {
 }
 ```
 
-It can be used either as a function `nursery(...)`, in which case it will call `nursery.run` (below),
-or as an object with the following properties:
+A nursery object is a function. When called it will run the task given to it.
 
-* `run(task: Promise | function)`: will run the task given to it. Its Nursery generator ensures
-  that **all** tasks that ran in the body of the `for await` loop terminate by waiting for them.
-
+* `nursery(task: Promise | function)`:
   If the task is a `Promise`, it will wait for promise resolution or cancelation. If it is a `function`,
   it will call the function, and wait on the `Promise` returned by it.
   If the function is synchronous and does not return a promise,
   it will transform the sync value (or exception) into a promise automatically.
 
-  If the task is a function, it will be called, and passed an object with the following properties:
+  If the task is a function, it will be called, and passed itself (the nursery object).
 
-  * `abortController`: the `AbortController` (see [here](https://developer.mozilla.org/en-US/docs/Web/API/AbortController))
-    that can be used to abort the nursery, using `abortController.abort()`. You can also access this object using
-    `nursery.abortController`. See below for how to use it
-  * `signal`: the `AbortSignal` that the `abortController` has. You can also access it via the `abortController.signal`
-    or via `nursery.signal`. See below for how to use it.
+  The `Nursery` generator (or `Nursery` function call) ensures that **all** tasks that
+  ran in the body of the `for await` loop
+  (or were given to the `Nursery` function)
+  terminate by waiting for them.
 
-  `run` returns the `Promise` (either the one given to it, or the one returned by the function). You _can_, but
+  The function call returns the `Promise` (either the one given to it, or the one returned by the function). You _can_, but
   don't have to `await` on the task (because the Nursery generator will wait for it when it is closed by the `for await` loop).
-* `signal`: the `AbortSignal` (see [here](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)) to enable
+
+The nursery function also has these additional properties:
+
+* `run(task: Promise | function)`: exactly the same as calling the nursery object directly.
+* `signal`: an `AbortSignal` (see [here](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)) to enable
   the tasks running in the nursery to detect when the nursery is aborted. In the example below, the second task
   detects that the nursery was aborted using `AbortSignal.aborted` in `nursery.signal.aborted ? ... : ...`:
 

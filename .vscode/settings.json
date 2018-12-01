@@ -6,7 +6,7 @@
   "mocha.logVerbose": false,
   "mocha.sideBarOptions": {
     "lens": false,
-    "decoration": true,
+    "decoration": false,
     "autoUpdateTime": 5000,
     "showDebugTestStatus": false
   }

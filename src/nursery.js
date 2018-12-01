@@ -12,12 +12,12 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
   const {retries} = {retries: 0, ...optionsArg}
   let retriesMutable = retries
 
-  Object.assign(run, {abortController, signal, run})
+  Object.assign(nursery, {abortController, signal, run: nursery})
 
   if (tasksArg) {
     return (async () => {
       for (let i = 0; i < retries + 1; ++i) {
-        tasksArg.forEach(run)
+        tasksArg.forEach(nursery)
 
         const [err, v] = await waitForAllPromisesEvenIfOneThrows(babyPromises).then(
           v => [undefined, v],
@@ -39,10 +39,10 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
         next() {
           ++this.loopI
           if (this.loopI === 1) {
-            return Promise.resolve({value: run})
+            return Promise.resolve({value: nursery})
           } else if (this.loopI >= 2 && retriesMutable > 0) {
             return finalizeGenerator().catch(err =>
-              retriesMutable-- === 0 ? Promise.reject(err) : Promise.resolve({value: run}),
+              retriesMutable-- === 0 ? Promise.reject(err) : Promise.resolve({value: nursery}),
             )
           } else if (this.loopI >= 2 && retriesMutable === 0) {
             return finalizeGenerator()
@@ -55,10 +55,8 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
     },
   }
 
-  function run(asyncFunc) {
-    const promise = Promise.resolve().then(() =>
-      asyncFunc.then ? asyncFunc : asyncFunc({abortController, signal}),
-    )
+  function nursery(asyncFunc) {
+    const promise = Promise.resolve().then(() => (asyncFunc.then ? asyncFunc : asyncFunc(nursery)))
 
     babyPromises.push(promise)
 

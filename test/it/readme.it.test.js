@@ -1,6 +1,6 @@
 'use strict'
 const util = require('util')
-const {describe, it} = require('mocha')
+const {describe = global.describe, it = global.it} = require('mocha')
 const {expect} = require('chai')
 
 const flatten = arr => [].concat(...arr)
@@ -25,6 +25,7 @@ describe('Code from Readme', function() {
           ['172', 'after Nursery failed!'],
           ['after Nursery failed!'],
           ['aborted', 'after Nursery failed!'],
+          ['done', 'done'],
           ['done', 'done'],
           ['done', 'done'],
           ['aborted', 'after Nursery failed!'],

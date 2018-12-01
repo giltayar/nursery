@@ -135,6 +135,13 @@ async function main() {
   // ==> done
   // ==> done
 
+  await Nursery([
+    delay(10).then(() => console.log('done')),
+    delay(20).then(() => console.log('done')),
+  ])
+  // ==> done
+  // ==> done
+
   let rejectionCount = 0
 
   for await (const nursery of Nursery({retries: 1})) {
