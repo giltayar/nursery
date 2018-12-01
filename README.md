@@ -248,9 +248,16 @@ We can also use `nursery.signal.onabort` to register an abort handler if we want
 > For more information on the Fetch API use of `AbortController`,
 > see [this](https://developer.mozilla.org/en-US/docs/Web/API/AbortController#Examples).
 
-### Retrying
+### Other really cool stuff you can do with a nursery
 
-TBD
+* **Retrying**: if you pass `{retries: 3}` to the `Nursery` call,
+  the body of the `for await` (or the tasks in the tasks list),
+  are retried 3 trimes. See "retries" section below.
+* **Throttling**: if you pass `{execution: throat(3)}`
+  (using the wonderful [throat](https://www.npmjs.com/package/throat) package)) to the `Nursery` call,
+  the execution of the tasks is throttled to three at a time. See "execution" section below.
+* **Sequential execution of async functions**: pass `{execution: throat(1)}` to the `Nursery` call,
+  and you get sequential execution of the async functions in the task list!
 
 ## API
 
@@ -291,7 +298,10 @@ This generator is commonly used in `for await` loops.
 
 * `taskList`: optional array of tasks. A task is either a `Promise` or a function returning a `Promise`.
 * `options`: [optional] object with the following properties:
-  * `retries`: the number of retries to run the loop body in case of failures. Default: 0
+  * `retries`: the number of retries to run the loop body in case of failures. Default: 0. See "Retries" section.
+  * `execution`: a function that receives a task that are async function and calls it. The nursery uses it
+    to execute all tasks that are async functions.
+    The default is to call it as is, but you can use it, for example, to throttle execution. See "execution" section.
 
 * Returns:
   * If no `taskLists`: an **async** generator commonly used in `for await` loops.
@@ -314,20 +324,6 @@ This generator is commonly used in `for await` loops.
     }])
     ```
     In this example, the Nursery call will wait until the two delays are done.
-
-Example with retries:
-
-```js
-let rejectionCount = 0
-
-for await (const nursery of Nursery({retries: 1})) {
-  nursery(() => rejectionCount++ ===  0 ? Promise.reject(new Error()) : Promise.resolve(1))
-  nursery(delay(20).then(() => console.log('done')))
-}
-```
-
-In the above example, `done` will be output twice because in the first run, the first task fails, and thus the whole
-body retries.
 
 ### nursery object
 
@@ -423,6 +419,68 @@ try {
 ```
 
 Note that if the first error is not of type `object`, then no field can or is added to it, but it is still rejected.
+
+## Retries
+
+Example with retries:
+
+```js
+let rejectionCount = 0
+
+for await (const nursery of Nursery({retries: 1})) {
+  nursery(() => rejectionCount++ ===  0 ? Promise.reject(new Error()) : Promise.resolve(1))
+  nursery(delay(20).then(() => console.log('done')))
+}
+```
+
+In the above example, `done` will be output twice because in the first run, the first task fails, and thus the whole
+body retries.
+
+## Execution
+
+The `execution` option enables you to control the execution of tasks that are functions. Note that if a task
+is a `Promise`, it will not be passed through the `execution` option, as it is already executing.
+
+The nursery will pass all task exections through the function.
+
+In the example below, we can log each task execution:
+
+```js
+function log(f) {
+  console.log('executing task')
+
+  return f()
+}
+
+for await (const nursery of Nursery({execution: log})) {
+  nursery(() => delay(10).then(_ => console.log(1)))
+  nursery(() => delay(20).then(_ => console.log(2)))
+}
+// ==> executing task
+// ==> executing task
+// ==> 1
+// ==> 2
+```
+
+Another, more practical example, using the wonderful [throat](https://www.npmjs.com/package/throat) package:
+
+```js
+const throat = require('throat')
+
+// `throat(1)` returns a function that will execute functions passed to it, as is,
+// but with a concurrency level of 1, i.e. sequential
+for await (const nursery of Nursery({execution: throat(1)})) {
+  nursery(() => delay(20).then(_ => console.log(1)))
+  nursery(() => delay(10).then(_ => console.log(2)))
+  nursery(() => delay(5).then(_ => console.log(3)))
+  nursery(() => delay(30).then(_ => console.log(4)))
+}
+
+// => 1
+// => 2
+// => 3
+// => 4
+```
 
 ## Contributing
 

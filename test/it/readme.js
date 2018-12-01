@@ -187,6 +187,36 @@ async function main() {
   }
   // ==> first error
   // ==> second error
+
+  function log(f) {
+    console.log('executing task')
+
+    return f()
+  }
+
+  for await (const nursery of Nursery({execution: log})) {
+    nursery(() => delay(10).then(_ => console.log(1)))
+    nursery(() => delay(20).then(_ => console.log(2)))
+  }
+  // ==> executing task
+  // ==> executing task
+  // ==> 1
+  // ==> 2
+
+  const throat = require('throat')
+
+  // `throat(1)` ensures sequential execution
+  for await (const nursery of Nursery({execution: throat(1)})) {
+    nursery(() => delay(20).then(_ => console.log(1)))
+    nursery(() => delay(10).then(_ => console.log(2)))
+    nursery(() => delay(5).then(_ => console.log(3)))
+    nursery(() => delay(30).then(_ => console.log(4)))
+  }
+
+  // => 1
+  // => 2
+  // => 3
+  // => 4
 }
 
 module.exports = main().catch(console.log)
