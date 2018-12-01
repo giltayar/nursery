@@ -4,10 +4,10 @@ const Nursery = require('../..')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 async function main() {
   await (async function() {
-    for await (const nursery of Nursery()) {
-      nursery(delay(20).then(() => console.log('second')))
-      nursery(delay(10).then(() => console.log('first')))
-    }
+    await Nursery([
+      delay(20).then(() => console.log('second')),
+      delay(10).then(() => console.log('first')),
+    ])
   })()
   // ==> first
   // ==> second
@@ -37,6 +37,19 @@ async function main() {
 
   await (async function() {
     try {
+      await Nursery([
+        Promise.reject(new Error('failed!')),
+        delay(10).then(() => console.log('first')),
+      ])
+    } catch (err) {
+      console.log('after Nursery', err.message)
+    }
+  })()
+  // ==> first
+  // ==> after Nursery failed!
+
+  await (async function() {
+    try {
       for await (const nursery of Nursery()) {
         nursery(Promise.reject(new Error('failed!')))
         nursery(delay(10).then(() => console.log('first')))
@@ -47,6 +60,17 @@ async function main() {
   })()
   // ==> first
   // ==> after Nursery failed!
+
+  await (async function() {
+    try {
+      for await (const nursery of Nursery()) {
+        nursery(() => Promise.reject(new Error('failed!')))
+        nursery(() => delay(10).then(() => console.log('first')))
+      }
+    } catch (err) {
+      console.log('after Nursery', err.message)
+    }
+  })()
 
   const fetch = require('node-fetch')
 

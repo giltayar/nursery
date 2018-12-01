@@ -5,7 +5,6 @@ Package implementing concurrency primitive inspired by the blog post
 
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 
-
 ## Installing
 
 ```sh
@@ -28,24 +27,15 @@ const Nursery = require('nursery-rhymes')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 ;(async function() {
-  for await (const nursery of Nursery()) {
-    nursery(delay(20).then(() => console.log('second')))
-    nursery(delay(10).then(() => console.log('first')))
+  await Nursery([
+    delay(20).then(() => console.log('second')),
+    delay(10).then(() => console.log('first'))
+  ])
   }
 })()
 // ==> first
 // ==> second
 ```
-
-The syntax is strange. There's a `for await` loop, and a body that runs two tasks using `nursery.run`.
-Don't worry, the `for await` loop will execute only once
-(we'll see later that it can execute more if we want, for retries).
-The tasks will run concurrently, but the `for await` loop (along with `Nursery` magic, will ensure that the code
-will wait till both tasks have run.
-
-Note: tasks in `Nursery` are either promises of already running tasks,
-or functions that returns promises that the nursey will execute to get the promsie.
-
 How is this different from the following using `Promise.all`?
 
 ```js
@@ -99,6 +89,29 @@ Let's contrast this with the same implementation of the code, using nurseries:
 ```js
 ;(async function() {
   try {
+    await Nursery([
+      Promise.reject(new Error('failed!')),
+      delay(10).then(() => console.log('first')),
+    ])
+  } catch (err) {
+    console.log('after Nursery', err.message)
+  }
+})()
+// ==> first
+// ==> after Nursery failed!
+```
+
+This code works as we "expect" it too. The nursery (the `for await` loop) will not finish until all nursery-run
+promises finish, even if one of the tasks fail. We will still get the error, but all the tasks will end their run.
+
+Note: what happens if _more_ than one task fails? Look it up in the API, this is handled well. TL;DR: the exception
+thrown includes a field that has all the other errors in an array.
+
+Let's look at another way of writing this in Nursery:
+
+```js
+;(async function() {
+  try {
     for await (const nursery of Nursery()) {
       nursery(Promise.reject(new Error('failed!')))
       nursery(delay(10).then(() => console.log('first')))
@@ -111,10 +124,30 @@ Let's contrast this with the same implementation of the code, using nurseries:
 // ==> after Nursery failed!
 ```
 
-This code works as we "expect" it too. The nursery (the `for await` loop) will not finish until all nursery-run
-promises finish, even if one of the tasks fail. We will still get the error, but all the tasks will end their run.
+The syntax is strange. There's a `for await` loop, and a body that runs two tasks using `nursery.run`.
+Don't worry, the `for await` loop will execute only once
+(we'll see later that it can execute more if we want, for retries).
+The tasks will run concurrently, but the `for await` loop (along with `Nursery` magic, will ensure that the code
+will wait till both tasks have run.
 
-Note: what happens if more than one task fails? Look it up in the API, this is handled well.
+Note: tasks in `Nursery` are either promises of already running tasks,
+or functions that returns promises that the nursey will execute to get the promise. For example, the above
+code can be written, but instead of passing promises directly, we pass async functions:
+
+```js
+;(async function() {
+  try {
+    for await (const nursery of Nursery()) {
+      nursery(() => Promise.reject(new Error('failed!')))
+      nursery(() => delay(10).then(() => console.log('first')))
+    }
+  } catch (err) {
+    console.log('after Nursery', err.message)
+  }
+})()
+// ==> first
+// ==> after Nursery failed!
+```
 
 ### Cancelling a Task
 

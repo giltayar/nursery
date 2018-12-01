@@ -19,6 +19,8 @@ describe('Code from Readme', function() {
           ['first', 'second'],
           ['after Promise.all failed!', 'first'],
           ['first', 'after Nursery failed!'],
+          ['first', 'after Nursery failed!'],
+          ['first', 'after Nursery failed!'],
           ['172'],
           ['172', 'after Nursery failed!'],
           ['after Nursery failed!'],
