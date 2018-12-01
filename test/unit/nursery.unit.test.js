@@ -158,7 +158,14 @@ describe('nursery', function() {
       expect(firstDone).to.be.true
     })
 
-    it('should handle the case of multi-error when the first error is not an object')
+    it('should handle the case of multi-error when the first error is not an object', async () => {
+      await expect(
+        await Nursery([Promise.reject('halle'), Promise.reject('lujah')]).then(
+          _ => ({}),
+          err => err,
+        ),
+      ).to.be.a('string')
+    })
   })
 
   describe('aborting', () => {
@@ -183,7 +190,17 @@ describe('nursery', function() {
       expect(secondDone).to.be.true
     })
 
-    it('should handle the case where abortController is used manually')
+    it('should handle the case where abortController is used manually', async () => {
+      expect(
+        await Nursery([
+          ({abortController}) => {
+            abortController.abort()
+            return 'regular'
+          },
+          ({signal}) => p(setTimeout)(10).then(_ => (signal.aborted ? 'aborted' : 'not aborted')),
+        ]),
+      ).to.eql(['regular', 'aborted'])
+    })
   })
 
   describe('tasks that are called with parameters', () => {})

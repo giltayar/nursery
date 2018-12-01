@@ -422,6 +422,8 @@ try {
 // ==> second error
 ```
 
+Note that if the first error is not of type `object`, then no field can or is added to it, but it is still rejected.
+
 ## Contributing
 
 * Contributions are welcome! PRs are welcome!

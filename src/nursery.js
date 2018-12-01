@@ -97,10 +97,14 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
         if (!firstRejectedPromise) {
           firstRejectedPromise = mutablePromises[i]
           firstRejectedError = err
-          firstRejectedError[Nursery.moreErrors] = []
+          if (typeof firstRejectedError === 'object') {
+            firstRejectedError[Nursery.moreErrors] = []
+          }
           abortController.abort()
         } else {
-          firstRejectedError[Nursery.moreErrors].push(err)
+          if (typeof firstRejectedError === 'object') {
+            firstRejectedError[Nursery.moreErrors].push(err)
+          }
         }
 
         mutablePromises.splice(i, 1)
