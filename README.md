@@ -56,7 +56,7 @@ It isn't! Same. But!
 
 But `Promise.all` is dumb. It doesn't include the following guarantee:
 
-> A Nursery will wait for all tasks to terminate, **even if one of the tasks fails**.
+> A Nursery waits for all tasks to terminate, **even if one of the tasks fails**.
 
 Let's look at this example:
 
@@ -76,8 +76,8 @@ Let's look at this example:
 ```
 
 In the above example, due to the failure of the first task, the Promise.all exits immediately, without waiting
-for the delay task to end. Thus, the catch will happen first and output `after Promise.all failed!`, and then
-**sometime in the future, wihout us having any control about it**, the other task will end.
+for the delay task to end. Thus, the catch happens first and output `after Promise.all failed!`, and then
+**sometime in the future, wihout us having any control about it**, the other task ends.
 
 What happened if the other task failed? Can we do anything about it? Nope. It silently fails. We lost control over it.
 
@@ -102,8 +102,8 @@ Let's contrast this with the same implementation of the code, using nurseries:
 // ==> after Nursery failed!
 ```
 
-This code works as we "expect" it too. The nursery (the `for await` loop) will not finish until all nursery-run
-promises finish, even if one of the tasks fail. We will still get the error, but all the tasks will end their run.
+This code works as we "expect" it too. The nursery (the `for await` loop) does not finish until all nursery-run
+promises finish, even if one of the tasks fail. We still get the error, but all the tasks end their run.
 
 Note: what happens if _more_ than one task fails? Look it up in the API, this is handled well. TL;DR: the exception
 thrown includes a field that has all the other errors in an array.
@@ -126,13 +126,13 @@ Let's look at another way of writing this in Nursery:
 ```
 
 The syntax is strange. There's a `for await` loop, and a body that runs two tasks using `nursery.run`.
-Don't worry, the `for await` loop will execute only once
+Don't worry, the `for await` loop executes only once
 (we'll see later that it can execute more if we want, for retries).
-The tasks will run concurrently, but the `for await` loop (along with `Nursery` magic, will ensure that the code
-will wait till both tasks have run.
+The tasks run concurrently, but the `for await` loop (along with `Nursery` magic), ensures that the code
+wait till both tasks have run.
 
 Note: tasks in `Nursery` are either promises of already running tasks,
-or functions that returns promises that the nursey will execute to get the promise. For example, the above
+or functions that returns promises that the nursey executes to get the promise. For example, the above
 code can be written, but instead of passing promises directly, we pass async functions:
 
 ```js
@@ -191,7 +191,7 @@ Now let's use this task in a nursery with another failed task:
   // ==> after Nursery failed!
 ```
 
-The nursery will wait for the `fetchSkywalker` task to terminate, and thus it will output `172` before failing. How
+The nursery waits for the `fetchSkywalker` task to terminate, and thus it outputs `172` before failing. How
 can we abort that fetch? We send the `fetch` an abort signal (this is part of the Fetch API):
 
 ```js
@@ -210,14 +210,14 @@ await (async function() {
 
 In this snippet, the "172" was never output, because the `fetchSkywalkerHeight` was cancelled. How? The nursery
 always creates an `AbortController` (with it's accompanying `AbortSignal`) when initializing,
-and when one of the tasks fail, it will call `AbortController.abort()` to signal to the other tasks to abort.
+and when one of the tasks fails, it calls `AbortController.abort()` to signal to the other tasks to abort.
 
 The `AbortController` and it's accompanying `AbortSignal` are stored in the nursery as
 `abortController` and `signal` respectively. We pass the `signal` to the Fetch API to tell it when to abort. This
 is how the `fetch` knows how to abort the task once of the other tasks fail.
 
 > I chose `AbortController` as the cancellation API as there is currently no other standard API that enables
-> task cancellation. If JavaScript in the future standardizes on another standard, I will add this one too.
+> task cancellation. If JavaScript in the future standardizes on another standard, I'll add this one too.
 
 You can use the `AbortSignal` to enable your own cancellation mechanism. Let's see an example:
 
@@ -240,7 +240,7 @@ You can use the `AbortSignal` to enable your own cancellation mechanism. Let's s
 // ==> after Nursery failed!
 ````
 
-When an abort happens, the `nursery.signal` will be `true`, enabling us to check the flag and abort whenever we want to.
+When an abort happens, the `nursery.signal` is `true`, enabling us to check the flag and abort whenever we want to.
 We can also use `nursery.signal.onabort` to register an abort handler if we want to.
 
 > For more information on `AbortController`,
