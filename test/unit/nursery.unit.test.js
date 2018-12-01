@@ -222,7 +222,6 @@ describe('nursery', function() {
           }),
         )
       }
-
       expect(firstCount).to.equal(3)
       expect(runTimes).to.equal(3)
     })
@@ -288,6 +287,7 @@ describe('nursery', function() {
           {retries: 4},
         ).catch(err => err.message),
       ).to.equal('error!')
+
       expect(taskRunCount).to.equal(5)
     })
   })
@@ -306,5 +306,9 @@ describe('nursery', function() {
 
       expect(results).to.eql([1, 2, 3, 4])
     })
+  })
+
+  describe('timeout', () => {
+    it('should not timeout if enough time passed')
   })
 })

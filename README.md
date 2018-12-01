@@ -241,7 +241,7 @@ You can use the `AbortSignal` to enable your own cancellation mechanism. Let's s
 ````
 
 When an abort happens, the `nursery.signal` is `true`, enabling us to check the flag and abort whenever we want to.
-We can also use `nursery.signal.onabort` to register an abort handler if we want to.
+We can also use `nursery.signal.addEventListener('abort', ...)` to register an abort handler if we want to.
 
 > For more information on `AbortController`,
 > see [this](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
