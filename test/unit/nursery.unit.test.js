@@ -1,5 +1,4 @@
 'use strict'
-const {promisify: p} = require('util')
 const {describe = global.describe, it = global.it} = require('mocha')
 const chai = require('chai')
 const {expect} = chai
@@ -8,6 +7,8 @@ const throat = require('throat')
 chai.use(require('chai-as-promised'))
 
 const Nursery = require('../..')
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 describe('nursery', function() {
   describe('run', () => {
@@ -18,8 +19,8 @@ describe('nursery', function() {
 
       for await (const nursery of Nursery()) {
         ++runTimes
-        nursery.run(() => p(setTimeout)(10).then(() => (firstDone = true)))
-        nursery.run(() => p(setTimeout)(20).then(() => (secondDone = true)))
+        nursery.run(() => delay(10).then(() => (firstDone = true)))
+        nursery.run(() => delay(20).then(() => (secondDone = true)))
       }
 
       expect(firstDone).to.be.true
@@ -43,13 +44,13 @@ describe('nursery', function() {
       let thirdDone = false
 
       for await (const nursery of Nursery()) {
-        nursery.run(() => p(setTimeout)(10).then(() => (firstDone = true)))
-        nursery.run(() => p(setTimeout)(20).then(() => (secondDone = true)))
+        nursery.run(() => delay(10).then(() => (firstDone = true)))
+        nursery.run(() => delay(20).then(() => (secondDone = true)))
 
         // the `if` is to that static analyzers dont bothers me with unreachable code
         if (Math.floor(Math.PI) === 3) break
 
-        nursery.run(() => p(setTimeout)(10).then(() => (thirdDone = true)))
+        nursery.run(() => delay(10).then(() => (thirdDone = true)))
       }
 
       expect(firstDone).to.be.true
@@ -60,7 +61,7 @@ describe('nursery', function() {
     it('should support function call syntax', async () => {
       let firstDone = false
 
-      for await (const n of Nursery()) n(() => p(setTimeout)(10).then(() => (firstDone = true)))
+      for await (const n of Nursery()) n(() => delay(10).then(() => (firstDone = true)))
 
       expect(firstDone).to.be.true
     })
@@ -68,7 +69,7 @@ describe('nursery', function() {
     it('should support receiving a promise', async () => {
       let firstDone = false
 
-      for await (const n of Nursery()) n(p(setTimeout)(10).then(() => (firstDone = true)))
+      for await (const n of Nursery()) n(delay(10).then(() => (firstDone = true)))
 
       expect(firstDone).to.be.true
     })
@@ -77,7 +78,7 @@ describe('nursery', function() {
       let firstDone = false
 
       for await (const n of Nursery()) {
-        await n(p(setTimeout)(10).then(() => (firstDone = true)))
+        await n(delay(10).then(() => (firstDone = true)))
         expect(firstDone).to.be.true
       }
     })
@@ -89,7 +90,7 @@ describe('nursery', function() {
         (async () => {
           for await (const nursery of Nursery()) {
             nursery(Promise.resolve(4))
-            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -100,8 +101,8 @@ describe('nursery', function() {
       await expect(
         (async () => {
           for await (const nursery of Nursery()) {
-            nursery(p(setTimeout)(20).then(_ => (firstDone = true)))
-            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            nursery(delay(20).then(_ => (firstDone = true)))
+            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -114,9 +115,9 @@ describe('nursery', function() {
       await expect(
         (async () => {
           for await (const nursery of Nursery()) {
-            nursery(p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nursery(p(setTimeout)(20).then(_ => (firstDone = true)))
-            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            nursery(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nursery(delay(20).then(_ => (firstDone = true)))
+            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })().then(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -129,9 +130,9 @@ describe('nursery', function() {
       await expect(
         (async () => {
           for await (const nursery of Nursery()) {
-            nursery(p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nursery(p(setTimeout)(20).then(_ => (firstDone = true)))
-            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            nursery(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nursery(delay(20).then(_ => (firstDone = true)))
+            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
             break
           }
         })().then(),
@@ -145,9 +146,9 @@ describe('nursery', function() {
       await expect(
         await (async () => {
           for await (const nursery of Nursery()) {
-            nursery(p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nursery(p(setTimeout)(20).then(_ => (firstDone = true)))
-            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            nursery(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nursery(delay(20).then(_ => (firstDone = true)))
+            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })().then(v => v, err => err),
       ).to.satisfy(
@@ -178,12 +179,12 @@ describe('nursery', function() {
         (async () => {
           for await (const nursery of Nursery()) {
             nursery(
-              p(setTimeout)(20).then(_ =>
+              delay(20).then(_ =>
                 nursery.signal.aborted ? (firstDone = false) : (firstDone = true),
               ),
             )
-            nursery(p(setTimeout)(30).then(_ => (secondDone = true)))
-            nursery(p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))))
+            nursery(delay(30).then(_ => (secondDone = true)))
+            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -199,7 +200,7 @@ describe('nursery', function() {
             abortController.abort()
             return 'regular'
           },
-          ({signal}) => p(setTimeout)(10).then(_ => (signal.aborted ? 'aborted' : 'not aborted')),
+          ({signal}) => delay(10).then(_ => (signal.aborted ? 'aborted' : 'not aborted')),
         ]),
       ).to.eql(['regular', 'aborted'])
     })
@@ -215,7 +216,7 @@ describe('nursery', function() {
       for await (const nursery of Nursery({retries: 2})) {
         ++runTimes
         nursery.run(() =>
-          p(setTimeout)(10).then(() => {
+          delay(10).then(() => {
             firstCount += 1
             if (firstCount <= 2) throw new Error('should be retried')
           }),
@@ -235,7 +236,7 @@ describe('nursery', function() {
           for await (const nursery of Nursery({retries: 4})) {
             ++runTimes
             nursery.run(() =>
-              p(setTimeout)(10).then(() => {
+              delay(10).then(() => {
                 firstCount += 1
                 throw new Error('should finally be error')
               }),
@@ -259,9 +260,9 @@ describe('nursery', function() {
 
       expect(
         await Nursery([
-          p(setTimeout)(30).then(_ => Promise.reject(new Error('rejected again'))),
-          p(setTimeout)(20).then(_ => (firstDone = true)),
-          p(setTimeout)(10).then(() => Promise.reject(new Error('rejected!'))),
+          delay(30).then(_ => Promise.reject(new Error('rejected again'))),
+          delay(20).then(_ => (firstDone = true)),
+          delay(10).then(() => Promise.reject(new Error('rejected!'))),
         ]).then(v => v, err => err),
       ).to.satisfy(
         err =>
@@ -297,10 +298,10 @@ describe('nursery', function() {
 
       // `throat(1)` ensures sequential execution
       for await (const nursery of Nursery({execution: throat(1)})) {
-        nursery(() => p(setTimeout)(20).then(_ => results.push(1)))
-        nursery(() => p(setTimeout)(10).then(_ => results.push(2)))
-        nursery(() => p(setTimeout)(5).then(_ => results.push(3)))
-        nursery(() => p(setTimeout)(30).then(_ => results.push(4)))
+        nursery(() => delay(20).then(_ => results.push(1)))
+        nursery(() => delay(10).then(_ => results.push(2)))
+        nursery(() => delay(5).then(_ => results.push(3)))
+        nursery(() => delay(30).then(_ => results.push(4)))
       }
 
       expect(results).to.eql([1, 2, 3, 4])
