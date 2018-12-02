@@ -1,6 +1,6 @@
 {
   "name": "nursery-rhymes",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "",
   "main": "src/nursery.js",
   "engines": {
