@@ -308,7 +308,34 @@ describe('nursery', function() {
     })
   })
 
-  describe('timeout', () => {
-    it('should not timeout if enough time passed')
+  describe('supervisor', () => {
+    it('should not timeout if not enough time passed', async () => {
+      let result
+      for await (const nursery of Nursery()) {
+        nursery.supervisor(Nursery.timeoutTask(100, {name: 'lalala'}))
+        nursery(delay(10).then(_ => (result = 42)))
+      }
+
+      expect(result).to.equal(42)
+    })
+
+    it('should timeout if enough time passed', async () => {
+      let alreadyAborted
+
+      try {
+        for await (const nursery of Nursery()) {
+          nursery.supervisor(Nursery.timeoutTask(10, {name: 'lalala'}))
+
+          nursery(({signal}) => delay(20).then(_ => (alreadyAborted = signal.aborted)))
+        }
+        expect.fail('should have thrown an exception')
+      } catch (err) {
+        expect(err).to.be.instanceOf(Nursery.TimeoutError)
+        expect(err.name).to.equal('lalala')
+        expect(err.code).to.equal('ERR_NURSERY_TIMEOUT_ERR')
+        expect(err.ms).to.equal(10)
+        expect(alreadyAborted).to.be.true
+      }
+    })
   })
 })

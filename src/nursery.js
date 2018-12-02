@@ -10,7 +10,7 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
   let babyTaskOptions = []
   let abortController = new AbortController()
   let signal = abortController.signal
-  Object.assign(nursery, {abortController, signal, run: nursery})
+  Object.assign(nursery, {abortController, signal, run: nursery, supervisor})
 
   let retriesMutable = retries
 
@@ -52,7 +52,7 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
     },
   }
 
-  function nursery(asyncFunc, {waitForIt = true} = {}) {
+  function run(asyncFunc, {waitForIt}) {
     const promise = Promise.resolve().then(() =>
       asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nursery)),
     )
@@ -61,6 +61,14 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
     babyTaskOptions.push({waitForIt})
 
     return promise
+  }
+
+  function nursery(asyncFunc) {
+    return run(asyncFunc, {waitForIt: true})
+  }
+
+  function supervisor(asyncFunc) {
+    return run(asyncFunc, {waitForIt: false})
   }
 
   async function waitForAllPromisesEvenIfOneThrows(promises, {forceWaiting = false} = {}) {
@@ -106,7 +114,8 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
         promisesDoneCount += type === 'wait' ? 1 : 0
 
         if (!firstRejectedPromise) {
-          firstRejectedPromise = mutableWaitPromises[i]
+          firstRejectedPromise =
+            type === 'wait' ? mutableWaitPromises[i] : mutableDontWaitPromises[i]
           firstRejectedError = err
           if (typeof firstRejectedError === 'object') {
             firstRejectedError[Nursery.moreErrors] = []
@@ -118,7 +127,11 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
           }
         }
 
-        mutableWaitPromises.splice(i, 1)
+        if (type === 'wait') {
+          mutableWaitPromises.splice(i, 1)
+        } else {
+          mutableDontWaitPromises.splice(i, 1)
+        }
       }
     }
 
@@ -181,7 +194,9 @@ Nursery.TimeoutError = class extends Error {
 
 Nursery.timeoutTask = (ms, {name = undefined} = {}) => ({signal}) =>
   new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Nursery.TimeoutError(ms, name)), ms)
+    const timer = setTimeout(() => {
+      reject(new Nursery.TimeoutError(ms, name))
+    }, ms)
 
     signal.addEventListener('abort', () => {
       clearTimeout(timer)
