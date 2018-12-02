@@ -22,10 +22,10 @@
     "async",
     "concurrency"
   ],
-  "author": "Gil Tayar <gil.tayar@applitools.com>",
-  "license": "UNLICENSED",
+  "author": "Gil Tayar <gil@tayar.org",
+  "license": "MIT",
   "repository": {
-    "url": "https://github.com/applitools/rendering-grid",
+    "url": "https://github.com/giltayar/nursery-rhymes",
     "type": "git"
   },
   "dependencies": {

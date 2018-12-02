@@ -259,7 +259,50 @@ We can also use `nursery.signal.addEventListener('abort', ...)` to register an a
 * **Sequential execution of async functions**: pass `{execution: throat(1)}` to the `Nursery` call,
   and you get sequential execution of the async functions in the task list!
 
-## API
+### Timers and Supervisors
+
+You can also run a task in "supervisor" mode. A task in this mode is not waited upon. Once all the other
+tasks are done, the nursery closes. Thus a supervisor task can supervise and wait for all other tasks to be done.
+
+(Note that a supervisor tasks is also waited upon to close, as this is a prime directive of a nursery: all tasks end.
+But this is done in a second phase: after all regular tasks are done, aborting is signalled, which allows supervisors
+to also be finish).
+
+The simplest task that should be run in supervisor mode is the `Nurse.timeoutTask`. This task enables us to timeout
+all tasks running in a nursery. For example, lets timeout the lukeSkywalker task:
+
+await (async function() {
+  try {
+    for await (const nursery of Nursery()) {
+      nursery.supervisor(Nursery.timeoutTask(5))
+      nursery(fetchSkywalkerHeight({signal: nursery.signal}).then(height => console.log(height)))
+    }
+  } catch (err) {
+    if (err instanceof Nursery.TimeoutError) {
+      console.log('Timed out!')
+    }
+  }
+})()
+// ==> Timed out!
+
+While `Nursery.timeoutTask` is an important supervisor task, you can write your own in a simple way. Look
+at the [Nursery.timeoutTask source code](./src/timeout-task.js) to understand how to write other supervisor tasks.
+
+```js
+await (async function() {
+  try {
+    for await (const nursery of Nursery()) {
+      nursery(Promise.reject(new Error('failed!')))
+      nursery(fetchSkywalkerHeight({signal: nursery.signal}).then(height => console.log(height)))
+    }
+  } catch (err) {
+    console.log('after Nursery', err.message)
+  }
+})()
+// ==> after Nursery failed!
+```
+
+## API Reference
 
 ```js
 const Nursery = require('nursery-rhymes')
@@ -357,6 +400,12 @@ A nursery object is a function. When called it will run the task given to it.
 The nursery function also has these additional properties:
 
 * `run(task: Promise | function)`: exactly the same as calling the nursery object directly.
+* `supervisor(task: Promise | function)`: runs the task as a supervisor.
+   A task in this mode is not waited upon. Once all the _other_ (non-supervisor) tasks are done, the nursery closes.
+   Thus a supervisor task can supervise and wait for all other tasks to be done.
+   Note that a supervisor tasks is also waited upon to close, as this is a prime directive of a nursery: all tasks end.
+   But this is done in a second phase: after all regular tasks are done, aborting is signalled, which allows supervisors
+   to register on abort and end.
 * `signal`: an `AbortSignal` (see [here](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)) to enable
   the tasks running in the nursery to detect when the nursery is aborted. In the example below, the second task
   detects that the nursery was aborted using `AbortSignal.aborted` in `nursery.signal.aborted ? ... : ...`:

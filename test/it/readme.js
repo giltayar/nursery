@@ -128,6 +128,20 @@ async function main() {
   // ==> aborted
   // ==> after Nursery failed!
 
+  await (async function() {
+    try {
+      for await (const nursery of Nursery()) {
+        nursery.supervisor(Nursery.timeoutTask(5))
+        nursery(fetchSkywalkerHeight({signal: nursery.signal}).then(height => console.log(height)))
+      }
+    } catch (err) {
+      if (err instanceof Nursery.TimeoutError) {
+        console.log('Timed out!')
+      }
+    }
+  })()
+  // ==> Timed out!
+
   for await (const nursery of Nursery()) {
     nursery(delay(10).then(() => console.log('done')))
     nursery(delay(20).then(() => console.log('done')))

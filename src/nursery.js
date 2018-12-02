@@ -1,5 +1,6 @@
 'use strict'
 const AbortController = require('abort-controller')
+const {TimeoutError, timeoutTask} = require('./timeout-task')
 
 function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
   const optionsArg = !optionsOrTasks || !Array.isArray(optionsOrTasks) ? optionsOrTasks : options
@@ -183,25 +184,7 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
 
 Nursery.moreErrors = Symbol('Nursery.moreErrors')
 
-Nursery.TimeoutError = class extends Error {
-  constructor(ms, name) {
-    super(`Timeout of ${ms}ms occured for task ${name ? name : '<unknown-task>'}`)
-    this.ms = ms
-    this.name = name
-    this.code = 'ERR_NURSERY_TIMEOUT_ERR'
-  }
-}
-
-Nursery.timeoutTask = (ms, {name = undefined} = {}) => ({signal}) =>
-  new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Nursery.TimeoutError(ms, name))
-    }, ms)
-
-    signal.addEventListener('abort', () => {
-      clearTimeout(timer)
-      resolve()
-    })
-  })
+Nursery.TimeoutError = TimeoutError
+Nursery.timeoutTask = timeoutTask
 
 module.exports = Nursery

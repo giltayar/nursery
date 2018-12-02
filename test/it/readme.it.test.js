@@ -25,6 +25,7 @@ describe('Code from Readme', function() {
           ['172', 'after Nursery failed!'],
           ['after Nursery failed!'],
           ['aborted', 'after Nursery failed!'],
+          ['Timed out!'],
           ['done', 'done'],
           ['done', 'done'],
           ['done', 'done'],
