@@ -1,4 +1,4 @@
-# nursery
+# promise-nursery
 
 Package implementing concurrency primitive inspired by the blog post
 [Notes on structured concurrency, or: Go statement considered harmful](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)

@@ -1,6 +1,6 @@
 {
-  "name": "nursery-rhymes",
-  "version": "1.4.2",
+  "name": "promise-nursery",
+  "version": "1.0.0",
   "description": "",
   "main": "src/nursery.js",
   "engines": {
@@ -25,7 +25,7 @@
   "author": "Gil Tayar <gil@tayar.org",
   "license": "MIT",
   "repository": {
-    "url": "https://github.com/giltayar/nursery-rhymes",
+    "url": "https://github.com/giltayar/promise-nursery",
     "type": "git"
   },
   "dependencies": {
