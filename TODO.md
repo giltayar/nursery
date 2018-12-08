@@ -4,6 +4,4 @@
 1. Write reference for timeoutTask and TimeoutError
 1. Retry options like sleep between, error filtering...
 1. `const {nurse, superervisor} of Nursery()`?
-1. Change name to pkeeper? Name of package is `keeper-of-promises`? Or maybe creche?
 1. Add Nursery.CancelTask exception that you can throw but doesn't reject...
-
