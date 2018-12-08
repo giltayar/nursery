@@ -11,6 +11,86 @@ const Nursery = require('../..')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 describe('nursery', function() {
+  describe('single task', () => {
+    it('should throw error if bare value', async () => {
+      expect(() => Nursery(4)).to.throw(/bare values/)
+    })
+
+    it('should return a value as sent by promise', async () => {
+      expect(await Nursery(Promise.resolve(4))).to.equal(4)
+    })
+
+    it('should throw reject on a rejected promise', async () => {
+      expect(
+        await Nursery(Promise.reject(new Error('ouch')).then(v => v, err => err.message)),
+      ).to.equal('ouch')
+    })
+
+    it('should return a value as sent by promise task', async () => {
+      expect(await Nursery(() => Promise.resolve(4))).to.equal(4)
+    })
+
+    it('should return a value as sent by value taks', async () => {
+      expect(await Nursery(() => 4)).to.equal(4)
+    })
+
+    it('should throw reject on a rejected promise task', async () => {
+      expect(
+        await Nursery(() => {
+          throw new Error('ouch')
+        }).then(v => v, err => err.message),
+      ).to.equal('ouch')
+    })
+    it('should throw reject on a thrown error task', async () => {
+      expect(
+        await Nursery(() => Promise.reject(new Error('ouch')).then(v => v, err => err.message)),
+      ).to.equal('ouch')
+    })
+
+    it('should support run with a sub nurse', async () => {
+      expect(
+        await Nursery(nurse => {
+          nurse(() => 4)
+        }),
+      ).to.eql([4, undefined])
+    })
+
+    it('should support multiple runs with a sub nurse', async () => {
+      expect(
+        await Nursery(nurse => {
+          nurse(() => 4)
+          nurse(() => Promise.resolve(2))
+
+          return 7
+        }),
+      ).to.eql([4, 2, 7])
+    })
+
+    it('should support a supervisor', async () => {
+      expect(
+        await Nursery(nurse => {
+          nurse.supervisor(Nursery.timeoutTask(10))
+          nurse(() => delay(20).then(_ => 4))
+
+          return 7
+        }).then(v => v, err => err.message),
+      ).to.contain('Timeout')
+
+      expect(
+        await Nursery(nurse => {
+          nurse.supervisor(Nursery.timeoutTask(20))
+          nurse(() => delay(10).then(_ => 4))
+
+          return 7
+        }).then(v => v, err => err.message),
+      ).to.eql([undefined, 4, 7])
+    })
+
+    it('should support returning an array', async () => {
+      expect(await Nursery(() => [4, 5])).to.eql([4, 5])
+    })
+  })
+
   describe('run', () => {
     it('should wait for spawned promises', async () => {
       let firstDone = false

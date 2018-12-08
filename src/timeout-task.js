@@ -9,6 +9,8 @@ class TimeoutError extends Error {
 
 const timeoutTask = (ms, {name = undefined} = {}) => ({signal}) =>
   new Promise((resolve, reject) => {
+    if (signal.aborted) resolve()
+
     const timer = setTimeout(() => {
       reject(new TimeoutError(ms, name))
     }, ms)

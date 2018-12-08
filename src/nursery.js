@@ -8,7 +8,12 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
       ? tasksOrOptions
       : undefined
   const tasksArg = tasksOrOptions && Array.isArray(tasksOrOptions) ? tasksOrOptions : undefined
-  const optionsArg = (tasksOrOptions && !(taskArg || tasksArg) ? tasksOrOptions : options) || {}
+  if (!taskArg && !tasksArg && tasksOrOptions && typeof tasksOrOptions !== 'object')
+    throw new Error('Nursery does not support tasks that are bare values')
+  const optionsArg =
+    (tasksOrOptions && !(taskArg || tasksArg) && typeof tasksOrOptions === 'object'
+      ? tasksOrOptions
+      : options) || {}
   const {retries = 0, execution = f => f()} = optionsArg
 
   let babyPromises = []
@@ -26,7 +31,7 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
         const [err, v] = await finalize().then(v => [undefined, v], err => [err])
 
         if (!err) {
-          return v[0]
+          return v.length === 1 ? v[0] : v
         }
         if (i === retries) throw err
       }
@@ -71,16 +76,12 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
   }
 
   function run(asyncFunc, {waitForIt}) {
-    const promise = Promise.resolve()
-      .then(() => (asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nurse))))
-      .then(
-        v => {
-          return v
-        },
-        err => {
-          return Promise.reject(err)
-        },
-      )
+    let promise
+    try {
+      promise = Promise.resolve(asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nurse)))
+    } catch (err) {
+      promise = Promise.reject(err)
+    }
 
     babyPromises.push(promise)
     babyTaskOptions.push({waitForIt})
