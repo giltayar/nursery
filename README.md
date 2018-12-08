@@ -8,7 +8,7 @@ Package implementing concurrency primitive inspired by the blog post
 ## Installing
 
 ```sh
-npm install nursery-rhymes
+npm install promise-nursery
 ```
 
 This package requires Node v8 and above, and has only one dependency: `abort-controller` which is used as a polyfill
@@ -22,7 +22,7 @@ finish together. Let's see an example:
 ### Running Multiple Tasks Together
 
 ```js
-const Nursery = require('nursery-rhymes')
+const Nursery = require('promise-nursery')
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -83,7 +83,7 @@ What happened if the other task failed? Can we do anything about it? Nope. It si
 
 And this is bad. Why this is bad intuitively makes sense, but the blog post
 [Notes on structured concurrency, or: Go statement considered harmful](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
-makes a pretty good case on why this is so.
+makes a pretty good case on why this it's bad.
 
 Let's contrast this with the same implementation of the code, using nurseries:
 
@@ -108,14 +108,14 @@ promises finish, even if one of the tasks fail. We still get the error, but all 
 Note: what happens if _more_ than one task fails? Look it up in the API, this is handled well. TL;DR: the exception
 thrown includes a field that has all the other errors in an array.
 
-Let's look at another way of writing this in Nursery:
+Let's look at another way of writing this in `promise-nursery`:
 
 ```js
 ;(async function() {
   try {
-    for await (const nursery of Nursery()) {
-      nursery(Promise.reject(new Error('failed!')))
-      nursery(delay(10).then(() => console.log('first')))
+    for await (const nurse of Nursery()) {
+      nurse(Promise.reject(new Error('failed!')))
+      nurse(delay(10).then(() => console.log('first')))
     }
   } catch (err) {
     console.log('after Nursery', err.message)
@@ -125,22 +125,26 @@ Let's look at another way of writing this in Nursery:
 // ==> after Nursery failed!
 ```
 
-The syntax is strange. There's a `for await` loop, and a body that runs two tasks using `nursery.run`.
+The syntax is strange. There's a `for await` loop, and a body that runs two tasks using `nurse(...)`.
 Don't worry, the `for await` loop executes only once
 (we'll see later that it can execute more if we want, for retries).
-The tasks run concurrently, but the `for await` loop (along with `Nursery` magic), ensures that the code
-wait till both tasks have run.
+The tasks run concurrently, but the `for await` loop (along with `Nursery` magic),
+ensures that the body of the for loop waits till both tasks have run.
 
-Note: tasks in `Nursery` are either promises of already running tasks,
+You can think of the `Nursery(...)` call, because it was called without any tasks, to create an iterator
+of `nurse`-es that enable executing tasks inside the nursery. Once all the tasks finish executing, the `for await`
+also finishes.
+
+Note: tasks in `Nursery` are either already-created promises,
 or functions that returns promises that the nursey executes to get the promise. For example, the above
 code can be written, but instead of passing promises directly, we pass async functions:
 
 ```js
 ;(async function() {
   try {
-    for await (const nursery of Nursery()) {
-      nursery(() => Promise.reject(new Error('failed!')))
-      nursery(() => delay(10).then(() => console.log('first')))
+    for await (const nurse of Nursery()) {
+      nurse(() => Promise.reject(new Error('failed!')))
+      nurse(() => delay(10).then(() => console.log('first')))
     }
   } catch (err) {
     console.log('after Nursery', err.message)
@@ -153,8 +157,8 @@ code can be written, but instead of passing promises directly, we pass async fun
 ### Cancelling a Task
 
 But what if I want to cancel a task if another task fails? I still want to wait till that cancellation is done,
-but I want to cancel it. Let's take a "real" task, which uses the [Star Wars API](https://swapi.co/) to get the
-height of Luke Skywalker:
+but I want to cancel it. As an exanple,
+let's create a "real" task, which uses the [Star Wars API](https://swapi.co/) to get the height of Luke Skywalker:
 
 ```js
 const fetch = require('node-fetch')
@@ -179,9 +183,9 @@ Now let's use this task in a nursery with another failed task:
 ```js
   await (async function() {
     try {
-      for await (const nursery of Nursery()) {
-        nursery(Promise.reject(new Error('failed!')))
-        nursery(fetchSkywalkerHeight().then(height => console.log(height)))
+      for await (const nurse of Nursery()) {
+        nurse(Promise.reject(new Error('failed!')))
+        nurse(fetchSkywalkerHeight().then(height => console.log(height)))
       }
     } catch (err) {
       console.log('after Nursery', err.message)
@@ -197,9 +201,9 @@ can we abort that fetch? We send the `fetch` an abort signal (this is part of th
 ```js
 await (async function() {
   try {
-    for await (const nursery of Nursery()) {
-      nursery(Promise.reject(new Error('failed!')))
-      nursery(fetchSkywalkerHeight({signal: nursery.signal}).then(height => console.log(height)))
+    for await (const nurse of Nursery()) {
+      nurse(Promise.reject(new Error('failed!')))
+      nurse(fetchSkywalkerHeight({signal: nurse.signal}).then(height => console.log(height)))
     }
   } catch (err) {
     console.log('after Nursery', err.message)
@@ -217,18 +221,18 @@ The `AbortController` and it's accompanying `AbortSignal` are stored in the nurs
 is how the `fetch` knows how to abort the task once of the other tasks fail.
 
 > I chose `AbortController` as the cancellation API as there is currently no other standard API that enables
-> task cancellation. If JavaScript in the future standardizes on another standard, I'll add this one too.
+> task cancellation. If JavaScript in the future standardizes on another standard, I'll add that one too.
 
 You can use the `AbortSignal` to enable your own cancellation mechanism. Let's see an example:
 
 ```js
 ;(async function() {
   try {
-    for await (const nursery of Nursery()) {
-      nursery(Promise.reject(new Error('failed!')))
-      nursery(
+    for await (const nurse of Nursery()) {
+      nurse(Promise.reject(new Error('failed!')))
+      nurse(
         delay(10).then(_ =>
-          !nursery.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+          !nurse.signal.aborted ? console.log('not aborted') : console.log('aborted'),
         ),
       )
     }
@@ -240,8 +244,8 @@ You can use the `AbortSignal` to enable your own cancellation mechanism. Let's s
 // ==> after Nursery failed!
 ````
 
-When an abort happens, the `nursery.signal` is `true`, enabling us to check the flag and abort whenever we want to.
-We can also use `nursery.signal.addEventListener('abort', ...)` to register an abort handler if we want to.
+When an abort happens, the `nurse.signal` is `true`, enabling us to check the flag and abort whenever we want to.
+We can also use `nurse.signal.addEventListener('abort', ...)` to register an abort handler if we want to.
 
 > For more information on `AbortController`,
 > see [this](https://developer.mozilla.org/en-US/docs/Web/API/AbortController).
@@ -252,7 +256,7 @@ We can also use `nursery.signal.addEventListener('abort', ...)` to register an a
 
 * **Retrying**: if you pass `{retries: 3}` to the `Nursery` call,
   the body of the `for await` (or the tasks in the tasks list),
-  are retried 3 trimes. See "retries" section below.
+  are retried 3 trimes (if needed). See "retries" section below.
 * **Throttling**: if you pass `{execution: throat(3)}`
   (using the wonderful [throat](https://www.npmjs.com/package/throat) package)) to the `Nursery` call,
   the execution of the tasks is throttled to three at a time. See "execution" section below.
@@ -273,9 +277,9 @@ all tasks running in a nursery. For example, lets timeout the lukeSkywalker task
 
 await (async function() {
   try {
-    for await (const nursery of Nursery()) {
-      nursery.supervisor(Nursery.timeoutTask(5))
-      nursery(fetchSkywalkerHeight({signal: nursery.signal}).then(height => console.log(height)))
+    for await (const nurse of Nursery()) {
+      nurse.supervisor(Nursery.timeoutTask(5))
+      nurse(fetchSkywalkerHeight({signal: nurse.signal}).then(height => console.log(height)))
     }
   } catch (err) {
     if (err instanceof Nursery.TimeoutError) {
@@ -288,35 +292,24 @@ await (async function() {
 While `Nursery.timeoutTask` is an important supervisor task, you can write your own in a simple way. Look
 at the [Nursery.timeoutTask source code](./src/timeout-task.js) to understand how to write other supervisor tasks.
 
-```js
-await (async function() {
-  try {
-    for await (const nursery of Nursery()) {
-      nursery(Promise.reject(new Error('failed!')))
-      nursery(fetchSkywalkerHeight({signal: nursery.signal}).then(height => console.log(height)))
-    }
-  } catch (err) {
-    console.log('after Nursery', err.message)
-  }
-})()
-// ==> after Nursery failed!
-```
-
 ## API Reference
 
 ```js
-const Nursery = require('nursery-rhymes')
+const Nursery = require('promise-nursery')
 ```
 
-The only export is `Nursery`, a function that if called with a set of "tasks", returns a promise, thus:
+The only export is `Nursery`, a function that if called with a set of "tasks" (or just one), returns a promise, thus:
 
 ```js
-await Nursery([...listOfPromisesOrFunctionsReturningPromises]))
+await Nursery([...listOfTasks | task]))
 ```
 
 > A task is either a `Promise` (e.g. `Promise.resolve(42)` or `funcReturningPromise()`) or
 > a function returning a `Promise` (e.g. `() => Promise.resolve(42)` or `funcReturningPromise`).
-> A function returning a `Promise` is sometimes referred to as an **async** function.
+
+Note: I sometimes refer to a function returning a `Promise` is sometimes referred to as an **async** function.
+
+Instead of an array of tasks, you can pass just one task.
 
 If no tasks are passed, calling `Nursery` returns a
 [generator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Iterators_and_Generators) of nurseries,
@@ -324,7 +317,7 @@ destined to be used in a
 [`for await` loop](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of), thus:
 
 ```js
-for await (const nursery of Nursery()) {
+for await (const nurse of Nursery()) {
   // body using the `nursery`
 }
 ```
@@ -333,9 +326,13 @@ Unless there are retries (see below on how to ask for retries), the body of the 
 
 ## Nursery function
 
-* `Nursery([taskList: Array<Promise|Function>], [options: object])`
+Three overloads:
 
-This function call returns a `Promise` if called with tasks,
+* `Nursery(task: Promise|Function, [options: object])`
+* `Nursery(taskList: Array<Promise|Function>, [options: object])`
+* `Nursery([options: object])`
+
+This function call returns a `Promise` if called with a task or an array tasks,
 or returns an **async** generator of `nursery` objects (of type `Nursery`) if not.
 This generator is commonly used in `for await` loops.
 
@@ -358,32 +355,57 @@ This generator is commonly used in `for await` loops.
     ```
     In this example, the `for await` loop will wait until the two delays are done.
 
-  * If `taskList`: a Promise that is almost exactly what `Promise.all` returns. Example:
+  * If `taskList`: a Promise that is exactly what `Promise.all` returns. Example:
 
     ```js
-    await Nursery([
-      nursery(delay(10).then(() => console.log('done')))
-      nursery(delay(20).then(() => console.log('done')))
-    }])
+    console.log(await Nursery([
+      delay(10).then(() => 4),
+      delay(20).then(() => 2),
+    ]))
+    // ==> [4, 2]
     ```
-    In this example, the Nursery call will wait until the two delays are done.
+    In this example, the Nursery call will wait until the two delays are done and will return an array of results
 
-### nursery object
+  * If `task`: a Promise that is the return value of the task:
 
-The object generated by the Nursery generator above. In the following example, `nursery` is a nursery object:
+    ```js
+    console.log(await Nursery([
+      delay(10).then(() => 4),
+    ]))
+    // ==> 4
+    ```
+    In this example, the Nursery call will wait until the two delays are done and will return an array of results
+
+    In all the above cases, a `nurse` object is passed to the function, to enable it to run other tasks. Note that
+    the return value in this case is an array of all the `nurse` run tasks + the return value of the task function
+    itself:
+
+    ```js
+    console.log(
+      await Nursery(nurse => {
+        nurse(delay(20).then(_ => 'run1'))
+        nurse(delay(10).then(_ => 'run2'))
+        return 'done'
+      }),
+    )
+    ```
+
+### nurse object
+
+The object generated by the Nursery generator above. In the following example, `nurse` is a nursery object:
 
 ```js
-for await (const nursery of Nursery()) {
-  nursery.run(delay(10).then(() => console.log('done')))
-  nursery.run(delay(20).then(() => console.log('done')))
+for await (const nurse of Nursery()) {
+  nurse.run(delay(10).then(() => console.log('done')))
+  nurse.run(delay(20).then(() => console.log('done')))
 }
 ```
 
-A nursery object is a function. When called it will run the task given to it.
+A nurse object is also a function. When called it will run the task given to it.
 
-* `nursery(task: Promise | function)`:
+* `nurse(task: Promise | function)`:
   If the task is a `Promise`, it will wait for promise resolution or cancelation. If it is a `function`,
-  it will call the function, and wait on the `Promise` returned by it.
+  it will call the function (with a `nurse` object), and wait on the `Promise` returned by it.
   If the function is synchronous and does not return a promise,
   it will transform the sync value (or exception) into a promise automatically.
 
@@ -397,9 +419,9 @@ A nursery object is a function. When called it will run the task given to it.
   The function call returns the `Promise` (either the one given to it, or the one returned by the function). You _can_, but
   don't have to `await` on the task (because the Nursery generator will wait for it when it is closed by the `for await` loop).
 
-The nursery function also has these additional properties:
+The `nurse` function also has these additional properties:
 
-* `run(task: Promise | function)`: exactly the same as calling the nursery object directly.
+* `run(task: Promise | function)`: exactly the same as calling the nurse object directly.
 * `supervisor(task: Promise | function)`: runs the task as a supervisor.
    A task in this mode is not waited upon. Once all the _other_ (non-supervisor) tasks are done, the nursery closes.
    Thus a supervisor task can supervise and wait for all other tasks to be done.
@@ -408,14 +430,14 @@ The nursery function also has these additional properties:
    to register on abort and end.
 * `signal`: an `AbortSignal` (see [here](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal)) to enable
   the tasks running in the nursery to detect when the nursery is aborted. In the example below, the second task
-  detects that the nursery was aborted using `AbortSignal.aborted` in `nursery.signal.aborted ? ... : ...`:
+  detects that the nursery was aborted using `AbortSignal.aborted` in `nurse.signal.aborted ? ... : ...`:
 
   ```js
-  for await (const nursery of Nursery()) {
-    nursery(Promise.reject(new Error('failed!')))
-    nursery(
+  for await (const nurse of Nursery()) {
+    nurse(Promise.reject(new Error('failed!')))
+    nurse(
       delay(10).then(_ =>
-        !nursery.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+        !nurse.signal.aborted ? console.log('not aborted') : console.log('aborted'),
       ),
     )
   }
@@ -424,15 +446,15 @@ The nursery function also has these additional properties:
   ```
 
 * `abortController`: the `AbortController` (see [here](https://developer.mozilla.org/en-US/docs/Web/API/AbortController))
-  that can be used to abort the nursery, using `nusery.abortController.abort()`. This will abort the nursery without
+  that can be used to abort the nursery, using `nurse.abortController.abort()`. This will abort the nursery without
   the need to fail a task. Example:
 
 ```js
-for await (const nursery of Nursery()) {
-  nursery(delay(10).then(() => nursery.abortController.abort()))
-  nursery(
+for await (const nurse of Nursery()) {
+  nurse(delay(10).then(() => nurse.abortController.abort()))
+  nurse(
     delay(10).then(_ =>
-      !nursery.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+      !nurse.signal.aborted ? console.log('not aborted') : console.log('aborted'),
     ),
   )
 }
@@ -455,9 +477,9 @@ Closing a generator will do the following:
 
 ```js
 try {
-  for await (const nursery of Nursery()) {
-    nursery(Promise.reject(new Error('first error')))
-    nursery(delay(10).then(_ => Promise.reject(new Error('second error'))))
+  for await (const nurse of Nursery()) {
+    nurse(Promise.reject(new Error('first error')))
+    nurse(delay(10).then(_ => Promise.reject(new Error('second error'))))
   }
 } catch (err) {
   console.log(err.message)
@@ -476,9 +498,9 @@ Example with retries:
 ```js
 let rejectionCount = 0
 
-for await (const nursery of Nursery({retries: 1})) {
-  nursery(() => rejectionCount++ ===  0 ? Promise.reject(new Error()) : Promise.resolve(1))
-  nursery(delay(20).then(() => console.log('done')))
+for await (const nurse of Nursery({retries: 1})) {
+  nurse(() => rejectionCount++ ===  0 ? Promise.reject(new Error()) : Promise.resolve(1))
+  nurse(delay(20).then(() => console.log('done')))
 }
 ```
 
@@ -501,9 +523,9 @@ function log(f) {
   return f()
 }
 
-for await (const nursery of Nursery({execution: log})) {
-  nursery(() => delay(10).then(_ => console.log(1)))
-  nursery(() => delay(20).then(_ => console.log(2)))
+for await (const nurse of Nursery({execution: log})) {
+  nurse(() => delay(10).then(_ => console.log(1)))
+  nurse(() => delay(20).then(_ => console.log(2)))
 }
 // ==> executing task
 // ==> executing task
@@ -518,11 +540,11 @@ const throat = require('throat')
 
 // `throat(1)` returns a function that will execute functions passed to it, as is,
 // but with a concurrency level of 1, i.e. sequential
-for await (const nursery of Nursery({execution: throat(1)})) {
-  nursery(() => delay(20).then(_ => console.log(1)))
-  nursery(() => delay(10).then(_ => console.log(2)))
-  nursery(() => delay(5).then(_ => console.log(3)))
-  nursery(() => delay(30).then(_ => console.log(4)))
+for await (const nurse of Nursery({execution: throat(1)})) {
+  nurse(() => delay(20).then(_ => console.log(1)))
+  nurse(() => delay(10).then(_ => console.log(2)))
+  nurse(() => delay(5).then(_ => console.log(3)))
+  nurse(() => delay(30).then(_ => console.log(4)))
 }
 
 // => 1
