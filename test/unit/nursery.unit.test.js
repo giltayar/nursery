@@ -213,9 +213,9 @@ describe('nursery', function() {
       let firstCount = 0
       let runTimes = 0
 
-      for await (const nursery of Nursery({retries: 2})) {
+      for await (const nurse of Nursery({retries: 2})) {
         ++runTimes
-        nursery.run(() =>
+        nurse.run(() =>
           delay(10).then(() => {
             firstCount += 1
             if (firstCount <= 2) throw new Error('should be retried')

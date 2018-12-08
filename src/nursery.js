@@ -2,23 +2,40 @@
 const AbortController = require('abort-controller')
 const {TimeoutError, timeoutTask} = require('./timeout-task')
 
-function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
-  const optionsArg = !optionsOrTasks || !Array.isArray(optionsOrTasks) ? optionsOrTasks : options
-  const tasksArg = optionsOrTasks && Array.isArray(optionsOrTasks) ? optionsOrTasks : undefined
-  const {retries = 0, execution = f => f()} = optionsArg || {}
+function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
+  const taskArg =
+    (tasksOrOptions && typeof tasksOrOptions === 'function') || tasksOrOptions.then
+      ? tasksOrOptions
+      : undefined
+  const tasksArg = tasksOrOptions && Array.isArray(tasksOrOptions) ? tasksOrOptions : undefined
+  const optionsArg = (tasksOrOptions && !(taskArg || tasksArg) ? tasksOrOptions : options) || {}
+  const {retries = 0, execution = f => f()} = optionsArg
 
   let babyPromises = []
   let babyTaskOptions = []
-  let abortController = new AbortController()
+  let abortController = optionsArg.abortController || new AbortController()
   let signal = abortController.signal
-  Object.assign(nursery, {abortController, signal, run: nursery, supervisor})
+  Object.assign(nurse, {abortController, signal, run: nurse, supervisor})
 
   let retriesMutable = retries
 
-  if (tasksArg) {
+  if (taskArg) {
     return (async () => {
       for (let i = 0; i < retries + 1; ++i) {
-        tasksArg.forEach(nursery)
+        nurse(taskArg)
+        const [err, v] = await finalize().then(v => [undefined, v], err => [err])
+
+        if (!err) {
+          return v[0]
+        }
+        if (i === retries) throw err
+      }
+    })()
+  } else if (tasksArg) {
+    return (async () => {
+      const nurseryOptions = {...optionsArg, abortController, signal, retries: 0}
+      for (let i = 0; i < retries + 1; ++i) {
+        tasksArg.map(task => Nursery(task, {...nurseryOptions})).forEach(promise => nurse(promise))
 
         const [err, v] = await finalize().then(v => [undefined, v], err => [err])
 
@@ -28,35 +45,42 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
         if (i === retries) throw err
       }
     })()
-  }
-
-  return {
-    [Symbol.asyncIterator]() {
-      return {
-        loopI: 0,
-        next() {
-          ++this.loopI
-          if (this.loopI === 1) {
-            return Promise.resolve({value: nursery})
-          } else if (this.loopI >= 2 && retriesMutable > 0) {
-            return finalizeGenerator().catch(err =>
-              retriesMutable-- === 0 ? Promise.reject(err) : Promise.resolve({value: nursery}),
-            )
-          } else if (this.loopI >= 2 && retriesMutable === 0) {
+  } else {
+    return {
+      [Symbol.asyncIterator]() {
+        return {
+          loopI: 0,
+          next() {
+            ++this.loopI
+            if (this.loopI === 1) {
+              return Promise.resolve({value: nurse})
+            } else if (this.loopI >= 2 && retriesMutable > 0) {
+              return finalizeGenerator().catch(err =>
+                retriesMutable-- === 0 ? Promise.reject(err) : Promise.resolve({value: nurse}),
+              )
+            } else if (this.loopI >= 2 && retriesMutable === 0) {
+              return finalizeGenerator()
+            }
+          },
+          return() {
             return finalizeGenerator()
-          }
-        },
-        return() {
-          return finalizeGenerator()
-        },
-      }
-    },
+          },
+        }
+      },
+    }
   }
 
   function run(asyncFunc, {waitForIt}) {
-    const promise = Promise.resolve().then(() =>
-      asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nursery)),
-    )
+    const promise = Promise.resolve()
+      .then(() => (asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nurse))))
+      .then(
+        v => {
+          return v
+        },
+        err => {
+          return Promise.reject(err)
+        },
+      )
 
     babyPromises.push(promise)
     babyTaskOptions.push({waitForIt})
@@ -64,7 +88,7 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
     return promise
   }
 
-  function nursery(asyncFunc) {
+  function nurse(asyncFunc) {
     return run(asyncFunc, {waitForIt: true})
   }
 
@@ -83,7 +107,10 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
       : [
           ...promises.map((p, i) =>
             babyTaskOptions[i].waitForIt
-              ? new Promise(resolve => signal.addEventListener('abort', _ => resolve()))
+              ? new Promise(resolve => {
+                  if (signal.aborted) resolve()
+                  signal.addEventListener('abort', _ => resolve())
+                })
               : p,
           ),
         ]
@@ -173,7 +200,7 @@ function Nursery(optionsOrTasks = {retries: 0}, options = undefined) {
 
       abortController = new AbortController()
       signal = abortController.signal
-      Object.assign(nursery, {abortController, signal, run: nursery})
+      Object.assign(nurse, {abortController, signal, run: nurse})
     })
   }
 
