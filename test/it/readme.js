@@ -246,6 +246,21 @@ async function main() {
   // => 2
   // => 3
   // => 4
+
+  try {
+    const [, skyWalkerHeight] = await Nursery(nurse => {
+      nurse.supervisor(Nursery.timeoutTask(5, {name: 'fetchSkywalkerHeight'}))
+
+      nurse(fetchSkywalkerHeight({signal: nurse.signal}))
+    })
+
+    console.log(skyWalkerHeight)
+  } catch (err) {
+    if (err.code === 'ERR_NURSERY_TIMEOUT_ERR') {
+      console.log(err.message)
+    }
+  }
+  // ==> Timeout of 5ms occured for task fetchSkywalkerHeight
 }
 
 module.exports = main().catch(console.log)

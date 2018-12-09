@@ -553,6 +553,53 @@ for await (const nurse of Nursery({execution: throat(1)})) {
 // => 4
 ```
 
+## Nursery.timeoutTask
+
+A function that returns a task that is supposed to run in supervisor mode,
+and throws a `Nursery.TimeoutError` if the timeout is reached.
+
+* `Nursery.timeoutTask(ms, options)`: returns a task that times out after `ms` milliseconds, or aborts with no error
+  if other non-supervisor tasks are finished.
+  * `ms`: the number of milliseconds to wait to throw the `Nursery.TimeoutError`. The exception will be thrown
+    only if other non-supervisor tasks are not finished.
+  * `options`: an object with the following properties:
+    * `name`: the name of the task. default: `undefined`. Will be sent to the `Nursery.TimeoutError`, which
+      shows it in the error and is also a property of the exception.
+
+Example:
+
+```js
+  try {
+    const [, skyWalkerHeight] = await Nursery(nurse => {
+      nurse.supervisor(Nursery.timeoutTask(5, {name: 'fetchSkywalkerHeight'}))
+
+      nurse(fetchSkywalkerHeight({signal: nurse.signal}))
+    })
+
+    console.log(skyWalkerHeight)
+  } catch (err) {
+    if (err.code === 'ERR_NURSERY_TIMEOUT_ERR') {
+      console.log(err.message)
+    }
+  }
+  // ==> Timeout of 5ms occured for task fetchSkywalkerHeight
+```
+
+Note in the example how we get back the skywalker height: it is the _second_ value returned because the
+timeoutTask also returns a value (`undefined`).
+
+## Nursery.TimeoutError
+
+A subclass of `Error`. Is thrown by `Nursery.timeoutTask` when a timeout occurs. Includes the following properties:
+
+* `message`: the regular `Error` message, with a specific message about the timeout, including the `name` and `ms`
+  of the timeout.
+* `code`: will be set to `ERR_NURSERY_TIMEOUT_ERR` to be able to identify this error.
+* `ms`: the number of milliseconds of the timeout (same as the `ms` value of `Nursery.timeoutTask`)
+* `name`: the name of the task ((same as the `name` option of `Nursery.timeoutTask`))
+
+See `Nursery.timeoutTask` for an example of catching a `Nursery.TimeoutError`.
+
 ## Contributing
 
 * Contributions are welcome! PRs are welcome!
