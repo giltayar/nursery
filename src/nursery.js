@@ -2,7 +2,7 @@
 const AbortController = require('abort-controller')
 const {TimeoutError, timeoutTask} = require('./timeout-task')
 
-function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
+function Nursery(tasksOrOptions = {}, options = undefined) {
   const taskArg =
     (tasksOrOptions && typeof tasksOrOptions === 'function') || tasksOrOptions.then
       ? tasksOrOptions
@@ -14,12 +14,13 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
     (tasksOrOptions && !(taskArg || tasksArg) && typeof tasksOrOptions === 'object'
       ? tasksOrOptions
       : options) || {}
-  const {retries = 0, execution = f => f()} = optionsArg
+  const {retries = 0, execution = f => f(), onRetry = undefined} = optionsArg
   let closed = false
 
   let babyPromises = []
   let babyTaskOptions = []
   let abortController = optionsArg.abortController || new AbortController()
+
   let signal = abortController.signal
 
   const argToSendToTasks = {nurse, supervisor, abortController, signal}
@@ -37,6 +38,8 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
           return v.length === 1 ? v[0] : v
         }
         if (i === retries) throw err
+
+        await executeOnRetry(i, err)
       }
     })()
   } else if (tasksArg) {
@@ -52,6 +55,8 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
           return v
         }
         if (i === retries) throw err
+
+        await executeOnRetry(i, err)
       }
     })()
   } else {
@@ -67,7 +72,9 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
               return finalizeGenerator().catch(err =>
                 retriesMutable-- === 0
                   ? Promise.reject(err)
-                  : Promise.resolve({value: argToSendToTasks}),
+                  : executeOnRetry(this.loopI - 2, err).then(() =>
+                      Promise.resolve({value: argToSendToTasks}),
+                    ),
               )
             } else if (this.loopI >= 2 && retriesMutable === 0) {
               return finalizeGenerator()
@@ -104,6 +111,12 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
 
   function supervisor(task) {
     return run(task, {waitForIt: false})
+  }
+
+  async function executeOnRetry(i, err) {
+    if (onRetry) {
+      await onRetry({attempt: i, remaining: retries - i, err})
+    }
   }
 
   async function waitForAllPromisesEvenIfOneThrows(promises, {forceWaiting = false} = {}) {
