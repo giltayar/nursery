@@ -341,6 +341,14 @@ This generator is commonly used in `for await` loops.
 * `taskList`: optional array of tasks. A task is either a `Promise` or a function returning a `Promise`.
 * `options`: [optional] object with the following properties:
   * `retries`: the number of retries to run the loop body in case of failures. Default: 0. See "Retries" section.
+  * `onRetry`: an async function that will be called (and waited upon) between every retry. It is passed
+    the following parameters:
+    * `attempt`: the number of retry attempt it is. Before the first retry, `attempty` is 1,
+      before the second retry, it is `2` and so on.
+      Note that if this function returns a rejected promise, then the retries stop. This enables
+      you to do error filtering and continue with the retries only on the errors you want.
+    * `remaining`: the remaining number of attempts left. Note that `remaining + attempt === retries`.
+    A nice set of retry functions is supplied as part of the `Nursery` object. See below.
   * `execution`: a function that receives a task that are async function and calls it. The nursery uses it
     to execute all tasks that are async functions.
     The default is to call it as is, but you can use it, for example, to throttle execution. See "execution" section.
@@ -595,6 +603,61 @@ A subclass of `Error`. Is thrown by `Nursery.timeoutTask` when a timeout occurs.
 * `name`: the name of the task ((same as the `name` option of `Nursery.timeoutTask`))
 
 See `Nursery.timeoutTask` for an example of catching a `Nursery.TimeoutError`.
+
+## Nursery.constantTimeRetry
+
+* A function that returns a timeout function that can be supplied to `Nursery`-s `onRetry`. It creates
+  a constant delay before each retry. It accepts the following parameter:
+  * `delta`: the delay, in milliseconds, before each retry. Example:
+
+```js
+for await (const {nurse} of Nursery({
+  retries: 3,
+  onRetry: Nursery.constantTimeRetry({delta: 200}),
+})) {
+  // ...
+}
+```
+
+## Nursery.linearTimeRetry
+
+* A function that returns a timeout function that can be supplied to `Nursery`-s `onRetry`. It creates
+  a linear delay before each retry. It accepts the following parameter:
+  * `start`: the initial first delay before each retry.
+  * `delta`: How much to grow each delay before each retry.
+  * `max`: the maximum delay possible. Default: `Infinity`
+
+  Note that the calculcation before each attempt will be `Math.min(start + delta * (attempt - 1), max)`
+  Example:
+
+```js
+for await (const {nurse} of Nursery({
+  retries: 3,
+  onRetry: Nursery.linearTimeRetry({start: 100, delta: 50}),
+})) {
+  // ...
+}
+```
+
+## Nursery.exponentialTimeRetry
+
+* A function that returns a timeout function that can be supplied to `Nursery`-s `onRetry`. It creates
+  an exponential (backoff) delay before each retry. It accepts the following parameter:
+  * `start`: the initial first delay before each retry.
+  * `factor`: How much to grow each delay before each retry.
+  * `max`: the maximum delay possible. Default: `Infinity`
+
+  Note that the calculcation before each attempt will be `Math.min(start * factor ** (attempt - 1), max)`
+  Example:
+
+```js
+for await (const {nurse} of Nursery({
+  retries: 3,
+  onRetry: Nursery.exponentialTimeRetry({start: 100, factor: 2}),
+})) {
+  // ...
+}
+```
 
 ## Contributing
 

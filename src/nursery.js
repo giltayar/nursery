@@ -252,6 +252,6 @@ Nursery.linearTimeRetry = ({start, delta = start, max = Infinity}) => ({attempt}
   delay(Math.min(start + delta * (attempt - 1), max))
 
 Nursery.exponentialTimeRetry = ({start, factor = 1.5, max = Infinity}) => ({attempt}) =>
-  delay(Math.min(start * Math.pow(factor, attempt - 1), max))
+  delay(Math.min(start * factor ** (attempt - 1), max))
 
 module.exports = Nursery
