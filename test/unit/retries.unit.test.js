@@ -28,6 +28,25 @@ describe('retries', () => {
       expect(runTimes).to.equal(3)
     })
 
+    it('a throw inside the body should not be retried', async () => {
+      let firstCount = 0
+      let runTimes = 0
+
+      await expect(
+        (async function() {
+          for await (const {nurse} of Nursery({retries: 2})) {
+            ++runTimes
+            nurse(() => delay(10))
+            firstCount += 1
+            if (firstCount <= 2) throw new Error('should not be retried')
+          }
+        })(),
+      ).to.eventually.be.rejectedWith('should not be retried')
+
+      expect(firstCount).to.equal(1)
+      expect(runTimes).to.equal(1)
+    })
+
     it('should retry and fail', async () => {
       let firstCount = 0
       let runTimes = 0

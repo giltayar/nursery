@@ -117,7 +117,6 @@ describe('nursery', function() {
 
       expect(firstDone).to.be.true
     })
-
     it('should wait for spawned promises even on break', async () => {
       let firstDone = false
       let secondDone = false
@@ -132,6 +131,30 @@ describe('nursery', function() {
 
         nurse(() => delay(10).then(() => (thirdDone = true)))
       }
+
+      expect(firstDone).to.be.true
+      expect(secondDone).to.be.true
+      expect(thirdDone).to.be.false
+    })
+
+    it('should wait for spawned promises even on throw', async () => {
+      let firstDone = false
+      let secondDone = false
+      let thirdDone = false
+
+      await expect(
+        (async function() {
+          for await (const {nurse} of Nursery()) {
+            nurse(() => delay(10).then(() => (firstDone = true)))
+            nurse(() => delay(20).then(() => (secondDone = true)))
+
+            // the `if` is to that static analyzers dont bothers me with unreachable code
+            if (Math.floor(Math.PI) === 3) throw new Error('breaking')
+
+            nurse(() => delay(10).then(() => (thirdDone = true)))
+          }
+        })(),
+      ).to.eventually.be.rejectedWith('breaking')
 
       expect(firstDone).to.be.true
       expect(secondDone).to.be.true
