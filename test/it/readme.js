@@ -33,6 +33,7 @@ async function main() {
   })()
   // ==> after Promise.all failed!
   // ==> first
+
   await delay(20) // this await is to wait for the rogue task. Should not be in the readme
 
   await (async function() {
@@ -50,7 +51,7 @@ async function main() {
 
   await (async function() {
     try {
-      for await (const nurse of Nursery()) {
+      for await (const {nurse} of Nursery()) {
         nurse(Promise.reject(new Error('failed!')))
         nurse(delay(10).then(() => console.log('first')))
       }
@@ -63,7 +64,7 @@ async function main() {
 
   await (async function() {
     try {
-      for await (const nurse of Nursery()) {
+      for await (const {nurse} of Nursery()) {
         nurse(() => Promise.reject(new Error('failed!')))
         nurse(() => delay(10).then(() => console.log('first')))
       }
@@ -88,7 +89,7 @@ async function main() {
 
   await (async function() {
     try {
-      for await (const nurse of Nursery()) {
+      for await (const {nurse} of Nursery()) {
         nurse(Promise.reject(new Error('failed!')))
         nurse(fetchSkywalkerHeight().then(height => console.log(height)))
       }
@@ -101,9 +102,9 @@ async function main() {
 
   await (async function() {
     try {
-      for await (const nurse of Nursery()) {
+      for await (const {nurse, signal} of Nursery()) {
         nurse(Promise.reject(new Error('failed!')))
-        nurse(fetchSkywalkerHeight({signal: nurse.signal}).then(height => console.log(height)))
+        nurse(fetchSkywalkerHeight({signal}).then(height => console.log(height)))
       }
     } catch (err) {
       console.log('after Nursery', err.message)
@@ -113,11 +114,11 @@ async function main() {
 
   await (async function() {
     try {
-      for await (const nurse of Nursery()) {
+      for await (const {nurse, signal} of Nursery()) {
         nurse(Promise.reject(new Error('failed!')))
         nurse(
           delay(10).then(_ =>
-            !nurse.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+            !signal.aborted ? console.log('not aborted') : console.log('aborted'),
           ),
         )
       }
@@ -130,9 +131,9 @@ async function main() {
 
   await (async function() {
     try {
-      for await (const nurse of Nursery()) {
-        nurse.supervisor(Nursery.timeoutTask(5))
-        nurse(fetchSkywalkerHeight({signal: nurse.signal}).then(height => console.log(height)))
+      for await (const {nurse, supervisor, signal} of Nursery()) {
+        supervisor(Nursery.timeoutTask(5))
+        nurse(fetchSkywalkerHeight({signal}).then(height => console.log(height)))
       }
     } catch (err) {
       if (err instanceof Nursery.TimeoutError) {
@@ -142,9 +143,9 @@ async function main() {
   })()
   // ==> Timed out!
 
-  for await (const nursery of Nursery()) {
-    nursery(delay(10).then(() => console.log('done')))
-    nursery(delay(20).then(() => console.log('done')))
+  for await (const {nurse} of Nursery()) {
+    nurse(delay(10).then(() => console.log('done')))
+    nurse(delay(20).then(() => console.log('done')))
   }
   // ==> done
   // ==> done
@@ -156,7 +157,7 @@ async function main() {
   // ==> 4
 
   console.log(
-    await Nursery(nurse => {
+    await Nursery(({nurse}) => {
       nurse(delay(20).then(_ => 'run1'))
       nurse(delay(10).then(_ => 'run2'))
       return 'done'
@@ -164,16 +165,16 @@ async function main() {
   )
   // ==> [ 'run1', 'run2', 'done' ]
 
-  for await (const nurse of Nursery()) {
-    nurse.run(delay(10).then(() => console.log('done')))
-    nurse.run(delay(20).then(() => console.log('done')))
+  for await (const {nurse} of Nursery()) {
+    nurse(delay(10).then(() => console.log('done')))
+    nurse(delay(20).then(() => console.log('done')))
   }
   // ==> done
   // ==> done
 
   let rejectionCount = 0
 
-  for await (const nurse of Nursery({retries: 1})) {
+  for await (const {nurse} of Nursery({retries: 1})) {
     nurse(() => (rejectionCount++ === 0 ? Promise.reject(new Error()) : Promise.resolve(1)))
     nurse(delay(20).then(() => console.log('done')))
   }
@@ -181,11 +182,11 @@ async function main() {
   // ==> done
 
   try {
-    for await (const nurse of Nursery()) {
+    for await (const {nurse, signal} of Nursery()) {
       nurse(Promise.reject(new Error('failed!')))
       nurse(
         delay(10).then(_ =>
-          !nurse.signal.aborted ? console.log('not aborted') : console.log('aborted'),
+          !signal.aborted ? console.log('not aborted') : console.log('aborted'),
         ),
       )
     }
@@ -195,18 +196,16 @@ async function main() {
   // ==> aborted
   // ==> after Nursery failed
 
-  for await (const nurse of Nursery()) {
-    nurse(delay(10).then(() => nurse.abortController.abort()))
+  for await (const {nurse, signal, abortController} of Nursery()) {
+    nurse(delay(10).then(() => abortController.abort()))
     nurse(
-      delay(10).then(_ =>
-        !nurse.signal.aborted ? console.log('not aborted') : console.log('aborted'),
-      ),
+      delay(10).then(_ => (!signal.aborted ? console.log('not aborted') : console.log('aborted'))),
     )
   }
   // ==> aborted
 
   try {
-    for await (const nurse of Nursery()) {
+    for await (const {nurse} of Nursery()) {
       nurse(Promise.reject(new Error('first error')))
       nurse(delay(10).then(_ => Promise.reject(new Error('second error'))))
     }
@@ -223,7 +222,7 @@ async function main() {
     return f()
   }
 
-  for await (const nurse of Nursery({execution: log})) {
+  for await (const {nurse} of Nursery({execution: log})) {
     nurse(() => delay(10).then(_ => console.log(1)))
     nurse(() => delay(20).then(_ => console.log(2)))
   }
@@ -235,7 +234,7 @@ async function main() {
   const throat = require('throat')
 
   // `throat(1)` ensures sequential execution
-  for await (const nurse of Nursery({execution: throat(1)})) {
+  for await (const {nurse} of Nursery({execution: throat(1)})) {
     nurse(() => delay(20).then(_ => console.log(1)))
     nurse(() => delay(10).then(_ => console.log(2)))
     nurse(() => delay(5).then(_ => console.log(3)))
@@ -248,10 +247,10 @@ async function main() {
   // => 4
 
   try {
-    const [, skyWalkerHeight] = await Nursery(nurse => {
-      nurse.supervisor(Nursery.timeoutTask(5, {name: 'fetchSkywalkerHeight'}))
+    const [, skyWalkerHeight] = await Nursery(({nurse, supervisor, signal}) => {
+      supervisor(Nursery.timeoutTask(5, {name: 'fetchSkywalkerHeight'}))
 
-      nurse(fetchSkywalkerHeight({signal: nurse.signal}))
+      nurse(fetchSkywalkerHeight({signal}))
     })
 
     console.log(skyWalkerHeight)

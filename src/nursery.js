@@ -21,7 +21,8 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
   let babyTaskOptions = []
   let abortController = optionsArg.abortController || new AbortController()
   let signal = abortController.signal
-  Object.assign(nurse, {abortController, signal, run: nurse, supervisor})
+
+  const argToSendToTasks = {nurse, supervisor, abortController, signal}
 
   let retriesMutable = retries
 
@@ -61,10 +62,12 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
           next() {
             ++this.loopI
             if (this.loopI === 1) {
-              return Promise.resolve({value: nurse})
+              return Promise.resolve({value: argToSendToTasks})
             } else if (this.loopI >= 2 && retriesMutable > 0) {
               return finalizeGenerator().catch(err =>
-                retriesMutable-- === 0 ? Promise.reject(err) : Promise.resolve({value: nurse}),
+                retriesMutable-- === 0
+                  ? Promise.reject(err)
+                  : Promise.resolve({value: argToSendToTasks}),
               )
             } else if (this.loopI >= 2 && retriesMutable === 0) {
               return finalizeGenerator()
@@ -84,7 +87,7 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
     }
     let promise
     try {
-      promise = Promise.resolve(task.then ? task : execution(() => task(nurse)))
+      promise = Promise.resolve(task.then ? task : execution(() => task(argToSendToTasks)))
     } catch (err) {
       promise = Promise.reject(err)
     }

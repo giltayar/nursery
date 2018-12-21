@@ -49,7 +49,7 @@ describe('nursery', function() {
 
     it('should support run with a sub nurse', async () => {
       expect(
-        await Nursery(nurse => {
+        await Nursery(({nurse}) => {
           nurse(() => 4)
         }),
       ).to.eql([4, undefined])
@@ -57,7 +57,7 @@ describe('nursery', function() {
 
     it('should support multiple runs with a sub nurse', async () => {
       expect(
-        await Nursery(nurse => {
+        await Nursery(({nurse}) => {
           nurse(() => 4)
           nurse(() => Promise.resolve(2))
 
@@ -68,8 +68,8 @@ describe('nursery', function() {
 
     it('should support a supervisor', async () => {
       expect(
-        await Nursery(nurse => {
-          nurse.supervisor(Nursery.timeoutTask(10))
+        await Nursery(({nurse, supervisor}) => {
+          supervisor(Nursery.timeoutTask(10))
           nurse(() => delay(20).then(_ => 4))
 
           return 7
@@ -77,8 +77,8 @@ describe('nursery', function() {
       ).to.contain('Timeout')
 
       expect(
-        await Nursery(nurse => {
-          nurse.supervisor(Nursery.timeoutTask(20))
+        await Nursery(({nurse, supervisor}) => {
+          supervisor(Nursery.timeoutTask(20))
           nurse(() => delay(10).then(_ => 4))
 
           return 7
@@ -97,10 +97,10 @@ describe('nursery', function() {
       let secondDone = false
       let runTimes = 0
 
-      for await (const nursery of Nursery()) {
+      for await (const {nurse} of Nursery()) {
         ++runTimes
-        nursery.run(() => delay(10).then(() => (firstDone = true)))
-        nursery.run(() => delay(20).then(() => (secondDone = true)))
+        nurse(() => delay(10).then(() => (firstDone = true)))
+        nurse(() => delay(20).then(() => (secondDone = true)))
       }
 
       expect(firstDone).to.be.true
@@ -123,14 +123,14 @@ describe('nursery', function() {
       let secondDone = false
       let thirdDone = false
 
-      for await (const nursery of Nursery()) {
-        nursery.run(() => delay(10).then(() => (firstDone = true)))
-        nursery.run(() => delay(20).then(() => (secondDone = true)))
+      for await (const {nurse} of Nursery()) {
+        nurse(() => delay(10).then(() => (firstDone = true)))
+        nurse(() => delay(20).then(() => (secondDone = true)))
 
         // the `if` is to that static analyzers dont bothers me with unreachable code
         if (Math.floor(Math.PI) === 3) break
 
-        nursery.run(() => delay(10).then(() => (thirdDone = true)))
+        nurse(() => delay(10).then(() => (thirdDone = true)))
       }
 
       expect(firstDone).to.be.true
@@ -138,18 +138,10 @@ describe('nursery', function() {
       expect(thirdDone).to.be.false
     })
 
-    it('should support function call syntax', async () => {
-      let firstDone = false
-
-      for await (const n of Nursery()) n(() => delay(10).then(() => (firstDone = true)))
-
-      expect(firstDone).to.be.true
-    })
-
     it('should support receiving a promise', async () => {
       let firstDone = false
 
-      for await (const n of Nursery()) n(delay(10).then(() => (firstDone = true)))
+      for await (const {nurse} of Nursery()) nurse(delay(10).then(() => (firstDone = true)))
 
       expect(firstDone).to.be.true
     })
@@ -157,8 +149,8 @@ describe('nursery', function() {
     it('should return the promise it ran', async () => {
       let firstDone = false
 
-      for await (const n of Nursery()) {
-        await n(delay(10).then(() => (firstDone = true)))
+      for await (const {nurse} of Nursery()) {
+        await nurse(delay(10).then(() => (firstDone = true)))
         expect(firstDone).to.be.true
       }
     })
@@ -168,9 +160,9 @@ describe('nursery', function() {
     it('for should throw exception if one of the promises does', async () => {
       await expect(
         (async () => {
-          for await (const nursery of Nursery()) {
-            nursery(Promise.resolve(4))
-            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
+          for await (const {nurse} of Nursery()) {
+            nurse(Promise.resolve(4))
+            nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -180,9 +172,9 @@ describe('nursery', function() {
       let firstDone = false
       await expect(
         (async () => {
-          for await (const nursery of Nursery()) {
-            nursery(delay(20).then(_ => (firstDone = true)))
-            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
+          for await (const {nurse} of Nursery()) {
+            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -194,10 +186,10 @@ describe('nursery', function() {
       let firstDone = false
       await expect(
         (async () => {
-          for await (const nursery of Nursery()) {
-            nursery(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nursery(delay(20).then(_ => (firstDone = true)))
-            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
+          for await (const {nurse} of Nursery()) {
+            nurse(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })().then(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -209,10 +201,10 @@ describe('nursery', function() {
       let firstDone = false
       await expect(
         (async () => {
-          for await (const nursery of Nursery()) {
-            nursery(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nursery(delay(20).then(_ => (firstDone = true)))
-            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
+          for await (const {nurse} of Nursery()) {
+            nurse(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
             break
           }
         })().then(),
@@ -225,10 +217,10 @@ describe('nursery', function() {
       let firstDone = false
       await expect(
         await (async () => {
-          for await (const nursery of Nursery()) {
-            nursery(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nursery(delay(20).then(_ => (firstDone = true)))
-            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
+          for await (const {nurse} of Nursery()) {
+            nurse(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
+            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })().then(v => v, err => err),
       ).to.satisfy(
@@ -257,14 +249,10 @@ describe('nursery', function() {
       let secondDone = true
       await expect(
         (async () => {
-          for await (const nursery of Nursery()) {
-            nursery(
-              delay(20).then(_ =>
-                nursery.signal.aborted ? (firstDone = false) : (firstDone = true),
-              ),
-            )
-            nursery(delay(30).then(_ => (secondDone = true)))
-            nursery(delay(10).then(() => Promise.reject(new Error('rejected!'))))
+          for await (const {nurse, signal} of Nursery()) {
+            nurse(delay(20).then(_ => (signal.aborted ? (firstDone = false) : (firstDone = true))))
+            nurse(delay(30).then(_ => (secondDone = true)))
+            nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
       ).to.eventually.be.rejectedWith('rejected!')
@@ -293,9 +281,9 @@ describe('nursery', function() {
       let firstCount = 0
       let runTimes = 0
 
-      for await (const nurse of Nursery({retries: 2})) {
+      for await (const {nurse} of Nursery({retries: 2})) {
         ++runTimes
-        nurse.run(() =>
+        nurse(() =>
           delay(10).then(() => {
             firstCount += 1
             if (firstCount <= 2) throw new Error('should be retried')
@@ -312,9 +300,9 @@ describe('nursery', function() {
 
       await expect(
         (async () => {
-          for await (const nursery of Nursery({retries: 4})) {
+          for await (const {nurse} of Nursery({retries: 4})) {
             ++runTimes
-            nursery.run(() =>
+            nurse(() =>
               delay(10).then(() => {
                 firstCount += 1
                 throw new Error('should finally be error')
@@ -377,11 +365,11 @@ describe('nursery', function() {
       const results = []
 
       // `throat(1)` ensures sequential execution
-      for await (const nursery of Nursery({execution: throat(1)})) {
-        nursery(() => delay(20).then(_ => results.push(1)))
-        nursery(() => delay(10).then(_ => results.push(2)))
-        nursery(() => delay(5).then(_ => results.push(3)))
-        nursery(() => delay(30).then(_ => results.push(4)))
+      for await (const {nurse} of Nursery({execution: throat(1)})) {
+        nurse(() => delay(20).then(_ => results.push(1)))
+        nurse(() => delay(10).then(_ => results.push(2)))
+        nurse(() => delay(5).then(_ => results.push(3)))
+        nurse(() => delay(30).then(_ => results.push(4)))
       }
 
       expect(results).to.eql([1, 2, 3, 4])
@@ -391,9 +379,9 @@ describe('nursery', function() {
   describe('supervisor', () => {
     it('should not timeout if not enough time passed', async () => {
       let result
-      for await (const nursery of Nursery()) {
-        nursery.supervisor(Nursery.timeoutTask(100, {name: 'lalala'}))
-        nursery(delay(10).then(_ => (result = 42)))
+      for await (const {nurse, supervisor} of Nursery()) {
+        supervisor(Nursery.timeoutTask(100, {name: 'lalala'}))
+        nurse(delay(10).then(_ => (result = 42)))
       }
 
       expect(result).to.equal(42)
@@ -403,10 +391,10 @@ describe('nursery', function() {
       let alreadyAborted
 
       try {
-        for await (const nursery of Nursery()) {
-          nursery.supervisor(Nursery.timeoutTask(10, {name: 'lalala'}))
+        for await (const {nurse, supervisor} of Nursery()) {
+          supervisor(Nursery.timeoutTask(10, {name: 'lalala'}))
 
-          nursery(({signal}) => delay(20).then(_ => (alreadyAborted = signal.aborted)))
+          nurse(({signal}) => delay(20).then(_ => (alreadyAborted = signal.aborted)))
         }
         expect.fail('should have thrown an exception')
       } catch (err) {
@@ -423,7 +411,7 @@ describe('nursery', function() {
     it('should throw an exception if used after close', async () => {
       let nurse
       let taskAfterCloseRan = false
-      for await (nurse of Nursery()) {
+      for await ({nurse} of Nursery()) {
         nurse(() => delay(10))
       }
 
@@ -441,7 +429,7 @@ describe('nursery', function() {
       let nurse
       let taskAfterCloseRan = false
       let i = 0
-      for await (nurse of Nursery({retries: 2})) {
+      for await ({nurse} of Nursery({retries: 2})) {
         i += 1
         if (i === 1) nurse(() => Promise.reject(new Error()))
         nurse(() => delay(10))
@@ -461,7 +449,7 @@ describe('nursery', function() {
     it('should not be able to use a nurse, even with task Nurseries', async () => {
       let globalNurse
       let taskAfterCloseRan = false
-      await Nursery(nurse => {
+      await Nursery(({nurse}) => {
         globalNurse = nurse
         nurse(() => delay(10))
       })
@@ -480,7 +468,7 @@ describe('nursery', function() {
       let globalNurse
       let taskAfterCloseRan = false
       await Nursery([
-        nurse => {
+        ({nurse}) => {
           globalNurse = nurse
           nurse(() => delay(10))
         },
@@ -499,8 +487,8 @@ describe('nursery', function() {
     it('should throw an exception if supervisor attempts to use nurse after closed', async () => {
       let taskAfterCloseRan = false
 
-      await Nursery(nurse => {
-        nurse.supervisor(async ({signal}) => {
+      await Nursery(({nurse, supervisor}) => {
+        supervisor(async ({signal}) => {
           signal.addEventListener('abort', () => {
             expect(() => {
               nurse(() => {
