@@ -356,8 +356,8 @@ describe('nursery', function() {
     it('should support retries', async () => {
       let taskRunCount = 0
 
-      expect(
-        await Nursery(
+      await expect(
+        Nursery(
           [
             () => {
               taskRunCount += 1
@@ -365,8 +365,8 @@ describe('nursery', function() {
             },
           ],
           {retries: 4},
-        ).catch(err => err.message),
-      ).to.equal('error!')
+        ),
+      ).to.eventually.be.rejectedWith('error!')
 
       expect(taskRunCount).to.equal(5)
     })
@@ -416,6 +416,103 @@ describe('nursery', function() {
         expect(err.ms).to.equal(10)
         expect(alreadyAborted).to.be.true
       }
+    })
+  })
+
+  describe('fail after close', async () => {
+    it('should throw an exception if used after close', async () => {
+      let nurse
+      let taskAfterCloseRan = false
+      for await (nurse of Nursery()) {
+        nurse(() => delay(10))
+      }
+
+      expect(() =>
+        nurse(() => {
+          taskAfterCloseRan = true
+          return delay(10)
+        }),
+      ).to.throw('cannot use a nurse after nursery is closed')
+
+      expect(taskAfterCloseRan).to.be.false
+    })
+
+    it('should throw an exception if used after close, even with retries', async () => {
+      let nurse
+      let taskAfterCloseRan = false
+      let i = 0
+      for await (nurse of Nursery({retries: 2})) {
+        i += 1
+        if (i === 1) nurse(() => Promise.reject(new Error()))
+        nurse(() => delay(10))
+      }
+
+      expect(i).to.equal(2)
+      expect(() =>
+        nurse(() => {
+          taskAfterCloseRan = true
+          return delay(10)
+        }),
+      ).to.throw('cannot use a nurse after nursery is closed')
+
+      expect(taskAfterCloseRan).to.be.false
+    })
+
+    it('should not be able to use a nurse, even with task Nurseries', async () => {
+      let globalNurse
+      let taskAfterCloseRan = false
+      await Nursery(nurse => {
+        globalNurse = nurse
+        nurse(() => delay(10))
+      })
+
+      expect(() =>
+        globalNurse(() => {
+          taskAfterCloseRan = true
+          return delay(10)
+        }),
+      ).to.throw('cannot use a nurse after nursery is closed')
+
+      expect(taskAfterCloseRan).to.be.false
+    })
+
+    it('should not be able to use a nurse, even with task list Nurseries', async () => {
+      let globalNurse
+      let taskAfterCloseRan = false
+      await Nursery([
+        nurse => {
+          globalNurse = nurse
+          nurse(() => delay(10))
+        },
+      ])
+
+      expect(() =>
+        globalNurse(() => {
+          taskAfterCloseRan = true
+          return delay(10)
+        }),
+      ).to.throw('cannot use a nurse after nursery is closed')
+
+      expect(taskAfterCloseRan).to.be.false
+    })
+
+    it('should throw an exception if supervisor attempts to use nurse after closed', async () => {
+      let taskAfterCloseRan = false
+
+      await Nursery(nurse => {
+        nurse.supervisor(async ({signal}) => {
+          signal.addEventListener('abort', () => {
+            expect(() => {
+              nurse(() => {
+                taskAfterCloseRan = true
+                return delay(10)
+              })
+            }).to.throw('cannot use a nurse after nursery is closed')
+          })
+        })
+      })
+
+      expect(taskAfterCloseRan).to.be.false
     })
   })
 })

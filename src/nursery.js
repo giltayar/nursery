@@ -15,6 +15,7 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
       ? tasksOrOptions
       : options) || {}
   const {retries = 0, execution = f => f()} = optionsArg
+  let closed = false
 
   let babyPromises = []
   let babyTaskOptions = []
@@ -27,6 +28,7 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
   if (taskArg) {
     return (async () => {
       for (let i = 0; i < retries + 1; ++i) {
+        closed = false
         nurse(taskArg)
         const [err, v] = await finalize().then(v => [undefined, v], err => [err])
 
@@ -40,6 +42,7 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
     return (async () => {
       const nurseryOptions = {...optionsArg, abortController, signal, retries: 0}
       for (let i = 0; i < retries + 1; ++i) {
+        closed = false
         tasksArg.map(task => Nursery(task, {...nurseryOptions})).forEach(promise => nurse(promise))
 
         const [err, v] = await finalize().then(v => [undefined, v], err => [err])
@@ -75,10 +78,13 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
     }
   }
 
-  function run(asyncFunc, {waitForIt}) {
+  function run(task, {waitForIt}) {
+    if (closed) {
+      throw new Error('cannot use a nurse after nursery is closed')
+    }
     let promise
     try {
-      promise = Promise.resolve(asyncFunc.then ? asyncFunc : execution(() => asyncFunc(nurse)))
+      promise = Promise.resolve(task.then ? task : execution(() => task(nurse)))
     } catch (err) {
       promise = Promise.reject(err)
     }
@@ -89,12 +95,12 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
     return promise
   }
 
-  function nurse(asyncFunc) {
-    return run(asyncFunc, {waitForIt: true})
+  function nurse(task) {
+    return run(task, {waitForIt: true})
   }
 
-  function supervisor(asyncFunc) {
-    return run(asyncFunc, {waitForIt: false})
+  function supervisor(task) {
+    return run(task, {waitForIt: false})
   }
 
   async function waitForAllPromisesEvenIfOneThrows(promises, {forceWaiting = false} = {}) {
@@ -164,6 +170,7 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
       }
     }
 
+    closed = true
     if (mutableDontWaitPromises.length > 0) {
       // abort non-waitForIt tasks, and then wait for them!
       abortController.abort()
@@ -206,7 +213,13 @@ function Nursery(tasksOrOptions = {retries: 0}, options = undefined) {
   }
 
   async function finalizeGenerator() {
-    return finalize().then(() => Promise.resolve({done: true}))
+    return finalize().then(
+      () => Promise.resolve({done: true}),
+      err => {
+        closed = false
+        return Promise.reject(err)
+      },
+    )
   }
 }
 
