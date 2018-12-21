@@ -115,7 +115,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
 
   async function executeOnRetry(i, err) {
     if (onRetry) {
-      await onRetry({attempt: i, remaining: retries - i, err})
+      await onRetry({attempt: i + 1, remaining: retries - (i + 1), err})
     }
   }
 
@@ -243,5 +243,15 @@ Nursery.moreErrors = Symbol('Nursery.moreErrors')
 
 Nursery.TimeoutError = TimeoutError
 Nursery.timeoutTask = timeoutTask
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+Nursery.constantTimeRetry = ({delta}) => () => delay(delta)
+
+Nursery.linearTimeRetry = ({start, delta = start, max = Infinity}) => ({attempt}) =>
+  delay(Math.min(start + delta * (attempt - 1), max))
+
+Nursery.exponentialTimeRetry = ({start, factor = 1.5, max = Infinity}) => ({attempt}) =>
+  delay(Math.min(start * Math.pow(factor, attempt - 1), max))
 
 module.exports = Nursery

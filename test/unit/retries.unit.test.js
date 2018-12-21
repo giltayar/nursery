@@ -12,24 +12,24 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 describe('retries', () => {
   describe('retry count', () => {
     it('should retry and succeed', async () => {
-      let firstCount = 0
+      let taskCount = 0
       let runTimes = 0
 
       for await (const {nurse} of Nursery({retries: 2})) {
         ++runTimes
         nurse(() =>
           delay(10).then(() => {
-            firstCount += 1
-            if (firstCount <= 2) throw new Error('should be retried')
+            taskCount += 1
+            if (taskCount <= 2) throw new Error('should be retried')
           }),
         )
       }
-      expect(firstCount).to.equal(3)
+      expect(taskCount).to.equal(3)
       expect(runTimes).to.equal(3)
     })
 
     it('a throw inside the body should not be retried', async () => {
-      let firstCount = 0
+      let taskCount = 0
       let runTimes = 0
 
       await expect(
@@ -37,18 +37,18 @@ describe('retries', () => {
           for await (const {nurse} of Nursery({retries: 2})) {
             ++runTimes
             nurse(() => delay(10))
-            firstCount += 1
-            if (firstCount <= 2) throw new Error('should not be retried')
+            taskCount += 1
+            if (taskCount <= 2) throw new Error('should not be retried')
           }
         })(),
       ).to.eventually.be.rejectedWith('should not be retried')
 
-      expect(firstCount).to.equal(1)
+      expect(taskCount).to.equal(1)
       expect(runTimes).to.equal(1)
     })
 
     it('should retry and fail', async () => {
-      let firstCount = 0
+      let taskCount = 0
       let runTimes = 0
 
       await expect(
@@ -57,7 +57,7 @@ describe('retries', () => {
             ++runTimes
             nurse(() =>
               delay(10).then(() => {
-                firstCount += 1
+                taskCount += 1
                 throw new Error('should finally be error')
               }),
             )
@@ -65,7 +65,7 @@ describe('retries', () => {
         })(),
       ).to.eventually.rejectedWith('should finally be error')
 
-      expect(firstCount).to.equal(5)
+      expect(taskCount).to.equal(5)
       expect(runTimes).to.equal(5)
     })
   })
@@ -147,6 +147,98 @@ describe('retries', () => {
       ).to.eventually.be.rejectedWith('!!!')
 
       expect(runTimes).to.equal(1)
+    })
+  })
+
+  describe('Nursery.*TimeRetry', () => {
+    it('should do constant time', async () => {
+      let taskCount = 0
+
+      const start = Date.now()
+      for await (const {nurse} of Nursery({
+        retries: 3,
+        onRetry: Nursery.constantTimeRetry({delta: 200}),
+      })) {
+        nurse(() => {
+          taskCount += 1
+          if (taskCount <= 3) throw new Error('should be retried')
+        })
+      }
+      const time = Date.now() - start
+
+      expect(time).to.be.approximately(200 * 3, 50)
+    })
+
+    it('should do linear time', async () => {
+      let taskCount = 0
+
+      const start = Date.now()
+      for await (const {nurse} of Nursery({
+        retries: 3,
+        onRetry: Nursery.linearTimeRetry({start: 200, delta: 30}),
+      })) {
+        nurse(() => {
+          taskCount += 1
+          if (taskCount <= 3) throw new Error('should be retried')
+        })
+      }
+      const time = Date.now() - start
+
+      expect(time).to.be.approximately(200 + 230 + 260, 50)
+    })
+
+    it('should do linear time with max', async () => {
+      let taskCount = 0
+
+      const start = Date.now()
+      for await (const {nurse} of Nursery({
+        retries: 3,
+        onRetry: Nursery.linearTimeRetry({start: 200, delta: 30, max: 200}),
+      })) {
+        nurse(() => {
+          taskCount += 1
+          if (taskCount <= 3) throw new Error('should be retried')
+        })
+      }
+      const time = Date.now() - start
+
+      expect(time).to.be.approximately(200 * 3, 50)
+    })
+
+    it('should do exponential time', async () => {
+      let taskCount = 0
+
+      const start = Date.now()
+      for await (const {nurse} of Nursery({
+        retries: 3,
+        onRetry: Nursery.exponentialTimeRetry({start: 100, factor: 2}),
+      })) {
+        nurse(() => {
+          taskCount += 1
+          if (taskCount <= 3) throw new Error('should be retried')
+        })
+      }
+      const time = Date.now() - start
+
+      expect(time).to.be.approximately(100 + 200 + 400, 50)
+    })
+
+    it('should do exponential time with max', async () => {
+      let taskCount = 0
+
+      const start = Date.now()
+      for await (const {nurse} of Nursery({
+        retries: 3,
+        onRetry: Nursery.exponentialTimeRetry({start: 100, factor: 2, max: 200}),
+      })) {
+        nurse(() => {
+          taskCount += 1
+          if (taskCount <= 3) throw new Error('should be retried')
+        })
+      }
+      const time = Date.now() - start
+
+      expect(time).to.be.approximately(100 + 200 + 200, 50)
     })
   })
 })
