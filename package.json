@@ -1,6 +1,6 @@
 {
   "name": "promise-nursery",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "",
   "main": "src/nursery.js",
   "engines": {
