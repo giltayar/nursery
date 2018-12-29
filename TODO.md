@@ -1,3 +1,0 @@
-# pronise-nursery Todo
-
-1. Add Nursery.CancelTask exception that you can throw but doesn't reject...

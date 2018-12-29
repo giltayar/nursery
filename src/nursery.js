@@ -96,13 +96,25 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
     try {
       promise = Promise.resolve(task.then ? task : execution(() => task(argToSendToTasks)))
     } catch (err) {
-      promise = Promise.reject(err)
+      if (Nursery.CancelTask.isCancelledTaskError(err)) {
+        promise = Promise.resolve(err.value)
+      } else {
+        promise = Promise.reject(err)
+      }
     }
 
-    babyPromises.push(promise)
+    const finalPromise = promise.catch(err => {
+      if (Nursery.CancelTask.isCancelledTaskError(err)) {
+        return err.value
+      } else {
+        return Promise.reject(err)
+      }
+    })
+
+    babyPromises.push(finalPromise)
     babyTaskOptions.push({waitForIt})
 
-    return promise
+    return finalPromise
   }
 
   function nurse(task) {
@@ -158,6 +170,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
           promisesDoneCount += mutableWaitPromises.length
         }
       } catch (errOrErrArray) {
+        // unknown error from the Nursery code (shouldn't happen)
         if (!Array.isArray(errOrErrArray)) throw errOrErrArray
 
         const [err, , i, type] = errOrErrArray
@@ -240,6 +253,18 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
 }
 
 Nursery.moreErrors = Symbol('Nursery.moreErrors')
+
+Nursery.CancelTask = class extends Error {
+  constructor(value, message = 'Nursery task cancelled') {
+    super(message)
+    this.code = 'ERR_NURSERY_TASK_CANCELLED'
+    this.value = value
+  }
+
+  static isCancelledTaskError(err) {
+    return typeof err === 'object' && err.code === 'ERR_NURSERY_TASK_CANCELLED'
+  }
+}
 
 Nursery.TimeoutError = TimeoutError
 Nursery.timeoutTask = timeoutTask
