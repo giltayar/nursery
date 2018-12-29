@@ -30,8 +30,7 @@
     "type": "git"
   },
   "dependencies": {
-    "abort-controller": "^1.0.2",
-    "mocha-parallel-tests": "^2.0.6-alpha.3"
+    "abort-controller": "^1.0.2"
   },
   "devDependencies": {
     "chai": "^4.1.2",
@@ -41,6 +40,7 @@
     "eslint-plugin-node": "^6.0.1",
     "eslint-plugin-prettier": "^2.6.1",
     "mocha": "^5.2.0",
+    "mocha-parallel-tests": "^2.0.6-alpha.3",
     "node-fetch": "^2.3.0",
     "prettier": "^1.5.2",
     "throat": "^4.1.0"
