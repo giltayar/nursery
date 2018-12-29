@@ -659,6 +659,36 @@ for await (const {nurse} of Nursery({
 }
 ```
 
+## Nursery.CancelTask
+
+An exception, which if thrown _from inside a task_, will cancel it without aborting, and return a value. Example:
+
+```js
+const [res1, res2] = await Nursery([
+  () => {
+    // ...
+    throw new Nursery.CancelTask(42)
+  },
+  () => Promise.resolve(43),
+])
+console.log(res1)
+console.log(res2)
+
+// ==> 42
+// ==> 43
+```
+
+Note that if you throw this exception, the task will not fail. It's a nice and simple way to abort a task
+without the whole Nursery being rejected.
+
+`Nursery.CancelTask` extends JavaScript's `Error` with the following:
+
+* `constructor(value[], message)`:
+  * `value`: the value returned by the task. Will set the property `value`.
+  * `message`: the `this.message`. The default is `Nursery task cancelled`.
+* `code`: used to identify that it is a `CancelTask`. Has the value `ERR_NURSERY_TASK_CANCELLED`
+* `value`: the value to be returned by the task
+
 ## Contributing
 
 * Contributions are welcome! PRs are welcome!

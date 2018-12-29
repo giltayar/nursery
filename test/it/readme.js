@@ -260,6 +260,19 @@ async function main() {
     }
   }
   // ==> Timeout of 5ms occured for task fetchSkywalkerHeight
+
+  const [res1, res2] = await Nursery([
+    () => {
+      // ...
+      throw new Nursery.CancelTask(42)
+    },
+    () => Promise.resolve(43),
+  ])
+  console.log(res1)
+  console.log(res2)
+
+  // ==> 42
+  // ==> 43
 }
 
 module.exports = main().catch(console.log)

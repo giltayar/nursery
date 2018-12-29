@@ -38,6 +38,7 @@ describe('Code from Readme', function() {
           ['executing task', 'executing task', '1', '2'],
           ['1', '2', '3', '4'],
           ['Timeout of 5ms occured for task fetchSkywalkerHeight'],
+          ['42', '43'],
         ]),
       )
     } finally {
