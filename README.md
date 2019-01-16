@@ -1,4 +1,4 @@
-# promise-nursery
+# nursery
 
 Package implementing concurrency primitive inspired by the blog post
 [Notes on structured concurrency, or: Go statement considered harmful](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
@@ -8,7 +8,7 @@ Package implementing concurrency primitive inspired by the blog post
 ## Installing
 
 ```sh
-npm install promise-nursery
+npm install nursery
 ```
 
 This package requires Node 10 and above, and has only one dependency: `abort-controller` which is used as a polyfill
@@ -24,7 +24,7 @@ finish together. Let's see an example:
 ### Running Multiple Tasks Together
 
 ```js
-const Nursery = require('promise-nursery')
+const Nursery = require('nursery')
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -110,7 +110,7 @@ promises finish, even if one of the tasks fail. We still get the error, but all 
 Note: what happens if _more_ than one task fails? Look it up in the API, this is handled well. TL;DR: the exception
 thrown includes a field that has all the other errors in an array.
 
-Let's look at another way of writing this in `promise-nursery`:
+Let's look at another way of writing this in `nursery`:
 
 ```js
 ;(async function() {
@@ -297,7 +297,7 @@ at the [Nursery.timeoutTask source code](./src/timeout-task.js) to understand ho
 ## API Reference
 
 ```js
-const Nursery = require('promise-nursery')
+const Nursery = require('nursery')
 ```
 
 The only export is `Nursery`, a function that if called with a set of "tasks" (or just one), returns a promise, thus:
