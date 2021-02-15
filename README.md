@@ -160,13 +160,13 @@ code can be written, but instead of passing promises directly, we pass async fun
 
 But what if I want to cancel a task if another task fails? I still want to wait till that cancellation is done,
 but I want to cancel it. As an exanple,
-let's create a "real" task, which uses the [Star Wars API](https://swapi.co/) to get the height of Luke Skywalker:
+let's create a "real" task, which uses the [Star Wars API](https://swapi.dev/) to get the height of Luke Skywalker:
 
 ```js
 const fetch = require('node-fetch')
 
 async function fetchSkywalkerHeight(fetchOptions) {
-  const response = await fetch('https://swapi.co/api/people/1/', fetchOptions)
+  const response = await fetch('https://swapi.dev/api/people/1/', fetchOptions)
 
   const skywalkerInfo = await response.json()
   return skywalkerInfo.height
@@ -244,7 +244,7 @@ You can use the `AbortSignal` to enable your own cancellation mechanism. Let's s
 })()
 // ==> aborted
 // ==> after Nursery failed!
-````
+```
 
 When an abort happens, the `signal` becomes `true`, enabling us to check the flag and abort whenever we want to.
 We can also use `signal.addEventListener('abort', ...)` to register an abort handler if we want to.
@@ -254,7 +254,7 @@ We can also use `signal.addEventListener('abort', ...)` to register an abort han
 > For more information on the Fetch API use of `AbortController`,
 > see [this](https://developer.mozilla.org/en-US/docs/Web/API/AbortController#Examples).
 
-### Other really cool stuff you can do with a nursery:
+### Other really cool stuff you can do with a nursery
 
 * **Retrying**: if you pass `{retries: 3}` to the `Nursery` call,
   the body of the `for await` (or the tasks in the tasks list),
@@ -277,6 +277,7 @@ to also be finish).
 The simplest task that should be run in supervisor mode is the `Nursery.timeoutTask`. This task enables us to timeout
 all tasks running in a nursery. For example, lets timeout the lukeSkywalker task:
 
+```js
 await (async function() {
   try {
     for await (const {nurse, supervisor} of Nursery()) {
@@ -290,6 +291,7 @@ await (async function() {
   }
 })()
 // ==> Timed out!
+```
 
 While `Nursery.timeoutTask` is an important supervisor task, you can write your own in a simple way. Look
 at the [Nursery.timeoutTask source code](./src/timeout-task.js) to understand how to write other supervisor tasks.
@@ -363,6 +365,7 @@ This generator is commonly used in `for await` loops.
       nurse(delay(20).then(() => console.log('done')))
     }
     ```
+
     In this example, the `for await` loop will wait until the two delays are done.
 
   * If `taskList`: a Promise that is exactly what `Promise.all` returns. Example:
@@ -374,6 +377,7 @@ This generator is commonly used in `for await` loops.
     ]))
     // ==> [4, 2]
     ```
+
     In this example, the Nursery call will wait until the two delays are done and will return an array of results
 
   * If `task`: a Promise that is the return value of the task:
@@ -384,6 +388,7 @@ This generator is commonly used in `for await` loops.
     ]))
     // ==> 4
     ```
+
     In this example, the Nursery call will wait until the two delays are done and will return an array of results
 
     In all the above cases, a `Nurse` object is passed to the function, to enable it to run other tasks. Note that

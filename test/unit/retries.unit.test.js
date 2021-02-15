@@ -7,7 +7,7 @@ chai.use(require('chai-as-promised'))
 
 const Nursery = require('../..')
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('retries', () => {
   describe('retry count', () => {
@@ -33,7 +33,7 @@ describe('retries', () => {
       let runTimes = 0
 
       await expect(
-        (async function() {
+        (async function () {
           for await (const {nurse} of Nursery({retries: 2})) {
             ++runTimes
             nurse(() => delay(10))
@@ -70,14 +70,14 @@ describe('retries', () => {
     })
   })
 
-  describe('onRetry', function() {
+  describe('onRetry', function () {
     it('onRetry should be called for each retry', async () => {
       let calledOnRetry = 0
       let runTimes = 0
 
       for await (const {nurse} of Nursery({
         retries: 4,
-        onRetry: () => delay(1).then(_ => ++calledOnRetry),
+        onRetry: () => delay(1).then((_) => ++calledOnRetry),
       })) {
         ++runTimes
         if (runTimes === 5) return
@@ -100,7 +100,7 @@ describe('retries', () => {
           },
           {
             retries: 4,
-            onRetry: () => delay(1).then(_ => Promise.reject(new Error('!!!'))),
+            onRetry: () => delay(1).then((_) => Promise.reject(new Error('!!!'))),
           },
         ),
       ).to.eventually.be.rejectedWith('!!!')
@@ -122,7 +122,7 @@ describe('retries', () => {
           ],
           {
             retries: 4,
-            onRetry: () => delay(1).then(_ => Promise.reject(new Error('!!!'))),
+            onRetry: () => delay(1).then((_) => Promise.reject(new Error('!!!'))),
           },
         ),
       ).to.eventually.be.rejectedWith('!!!')
@@ -134,10 +134,10 @@ describe('retries', () => {
       let runTimes = 0
 
       await expect(
-        (async function() {
+        (async function () {
           for await (const {nurse} of Nursery({
             retries: 4,
-            onRetry: () => delay(1).then(_ => Promise.reject('!!!')),
+            onRetry: () => delay(1).then((_) => Promise.reject('!!!')),
           })) {
             ++runTimes
             if (runTimes === 5) return

@@ -6,7 +6,7 @@ chai.use(require('chai-as-promised'))
 
 const Nursery = require('../..')
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('error handling', () => {
   describe('errors', () => {
@@ -26,7 +26,7 @@ describe('error handling', () => {
       await expect(
         (async () => {
           for await (const {nurse} of Nursery()) {
-            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(20).then((_) => (firstDone = true)))
             nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
@@ -40,8 +40,8 @@ describe('error handling', () => {
       await expect(
         (async () => {
           for await (const {nurse} of Nursery()) {
-            nurse(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(30).then((_) => Promise.reject(new Error('rejected again'))))
+            nurse(delay(20).then((_) => (firstDone = true)))
             nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })().then(),
@@ -55,8 +55,8 @@ describe('error handling', () => {
       await expect(
         (async () => {
           for await (const {nurse} of Nursery()) {
-            nurse(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(30).then((_) => Promise.reject(new Error('rejected again'))))
+            nurse(delay(20).then((_) => (firstDone = true)))
             nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
             break
           }
@@ -71,13 +71,16 @@ describe('error handling', () => {
       await expect(
         await (async () => {
           for await (const {nurse} of Nursery()) {
-            nurse(delay(30).then(_ => Promise.reject(new Error('rejected again'))))
-            nurse(delay(20).then(_ => (firstDone = true)))
+            nurse(delay(30).then((_) => Promise.reject(new Error('rejected again'))))
+            nurse(delay(20).then((_) => (firstDone = true)))
             nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
-        })().then(v => v, err => err),
+        })().then(
+          (v) => v,
+          (err) => err,
+        ),
       ).to.satisfy(
-        err =>
+        (err) =>
           err.message === 'rejected!' &&
           err[Nursery.moreErrors].length === 1 &&
           err[Nursery.moreErrors][0].message === 'rejected again',
@@ -89,8 +92,8 @@ describe('error handling', () => {
     it('should handle the case of multi-error when the first error is not an object', async () => {
       await expect(
         await Nursery([Promise.reject('halle'), Promise.reject('lujah')]).then(
-          _ => ({}),
-          err => err,
+          (_) => ({}),
+          (err) => err,
         ),
       ).to.be.a('string')
     })
@@ -103,8 +106,10 @@ describe('error handling', () => {
       await expect(
         (async () => {
           for await (const {nurse, signal} of Nursery()) {
-            nurse(delay(20).then(_ => (signal.aborted ? (firstDone = false) : (firstDone = true))))
-            nurse(delay(30).then(_ => (secondDone = true)))
+            nurse(
+              delay(20).then((_) => (signal.aborted ? (firstDone = false) : (firstDone = true))),
+            )
+            nurse(delay(30).then((_) => (secondDone = true)))
             nurse(delay(10).then(() => Promise.reject(new Error('rejected!'))))
           }
         })(),
@@ -121,7 +126,7 @@ describe('error handling', () => {
             abortController.abort()
             return 'regular'
           },
-          ({signal}) => delay(10).then(_ => (signal.aborted ? 'aborted' : 'not aborted')),
+          ({signal}) => delay(10).then((_) => (signal.aborted ? 'aborted' : 'not aborted')),
         ]),
       ).to.eql(['regular', 'aborted'])
     })

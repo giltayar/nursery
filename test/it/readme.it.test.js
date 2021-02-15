@@ -3,9 +3,9 @@ const util = require('util')
 const {describe = global.describe, it = global.it} = require('mocha')
 const {expect} = require('chai')
 
-const flatten = arr => [].concat(...arr)
+const flatten = (arr) => [].concat(...arr)
 
-describe('Code from Readme', function() {
+describe('Code from Readme', function () {
   it('should all work', async () => {
     const logs = []
     const originalConsoleLog = console.log

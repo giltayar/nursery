@@ -14,7 +14,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
     (tasksOrOptions && !(taskArg || tasksArg) && typeof tasksOrOptions === 'object'
       ? tasksOrOptions
       : options) || {}
-  const {retries = 0, execution = f => f(), onRetry = undefined} = optionsArg
+  const {retries = 0, execution = (f) => f(), onRetry = undefined} = optionsArg
   let closed = false
 
   let babyPromises = []
@@ -32,7 +32,10 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
       for (let i = 0; i < retries + 1; ++i) {
         closed = false
         nurse(taskArg)
-        const [err, v] = await finalize().then(v => [undefined, v], err => [err])
+        const [err, v] = await finalize().then(
+          (v) => [undefined, v],
+          (err) => [err],
+        )
 
         if (!err) {
           return v.length === 1 ? v[0] : v
@@ -47,9 +50,14 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
       const nurseryOptions = {...optionsArg, abortController, signal, retries: 0}
       for (let i = 0; i < retries + 1; ++i) {
         closed = false
-        tasksArg.map(task => Nursery(task, {...nurseryOptions})).forEach(promise => nurse(promise))
+        tasksArg
+          .map((task) => Nursery(task, {...nurseryOptions}))
+          .forEach((promise) => nurse(promise))
 
-        const [err, v] = await finalize().then(v => [undefined, v], err => [err])
+        const [err, v] = await finalize().then(
+          (v) => [undefined, v],
+          (err) => [err],
+        )
 
         if (!err) {
           return v
@@ -69,7 +77,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
             if (this.loopI === 1) {
               return Promise.resolve({value: argToSendToTasks})
             } else if (this.loopI >= 2 && retriesMutable > 0) {
-              return finalizeGenerator().catch(err =>
+              return finalizeGenerator().catch((err) =>
                 retriesMutable-- === 0
                   ? Promise.reject(err)
                   : executeOnRetry(this.loopI - 2, err).then(() =>
@@ -103,7 +111,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
       }
     }
 
-    const finalPromise = promise.catch(err => {
+    const finalPromise = promise.catch((err) => {
       if (Nursery.CancelTask.isCancelledTaskError(err)) {
         return err.value
       } else {
@@ -142,16 +150,16 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
       : [
           ...promises.map((p, i) =>
             babyTaskOptions[i].waitForIt
-              ? new Promise(resolve => {
+              ? new Promise((resolve) => {
                   if (signal.aborted) resolve()
-                  signal.addEventListener('abort', _ => resolve())
+                  signal.addEventListener('abort', (_) => resolve())
                 })
               : p,
           ),
         ]
     const babyResults = Array()
     const promisesToBeDoneCount =
-      promises.length - (forceWaiting ? 0 : babyTaskOptions.filter(o => !o.waitForIt).length)
+      promises.length - (forceWaiting ? 0 : babyTaskOptions.filter((o) => !o.waitForIt).length)
     let promisesDoneCount = 0
     let firstRejectedPromise
     let firstRejectedError
@@ -215,13 +223,13 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
     function storeResults(promiseArray, type) {
       return promiseArray.map((p, i) =>
         p.then(
-          v => {
+          (v) => {
             if (babyResults[i] === undefined) {
               babyResults[i] = v
             }
             return [undefined, v, i, type]
           },
-          err => {
+          (err) => {
             babyResults[i] = undefined
             return Promise.reject([err, undefined, i, type])
           },
@@ -244,7 +252,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
   async function finalizeGenerator() {
     return finalize().then(
       () => Promise.resolve({done: true}),
-      err => {
+      (err) => {
         closed = false
         return Promise.reject(err)
       },
@@ -269,7 +277,7 @@ Nursery.CancelTask = class extends Error {
 Nursery.TimeoutError = TimeoutError
 Nursery.timeoutTask = timeoutTask
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 Nursery.constantTimeRetry = ({delta}) => () => delay(delta)
 

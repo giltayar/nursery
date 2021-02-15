@@ -1,10 +1,10 @@
 {
   "name": "nursery",
-  "version": "4.0.0",
+  "version": "4.0.3",
   "description": "",
   "main": "src/nursery.js",
   "engines": {
-    "node": ">=10.0.0"
+    "node": ">=12.0.0"
   },
   "files": [
     "src"
@@ -13,9 +13,8 @@
     "build": "#",
     "test": "npm run eslint && npm run test:mocha-parallel",
     "test:mocha": "mocha --no-timeouts --exit 'test/unit/*.test.js' 'test/it/*.test.js' 'test/e2e/*.test.js'",
-    "test:mocha-parallel": "mocha-parallel-tests --no-timeouts --exit 'test/unit/*.test.js' 'test/it/*.test.js' 'test/e2e/*.test.js'",
-    "eslint": "eslint '**/*.js'",
-    "prepublishOnly": "npm version patch"
+    "test:mocha-parallel": "mocha --parallel --no-timeouts --exit 'test/unit/*.test.js' 'test/it/*.test.js' 'test/e2e/*.test.js'",
+    "eslint": "eslint '**/*.js'"
   },
   "keywords": [
     "nursery",
@@ -30,19 +29,18 @@
     "type": "git"
   },
   "dependencies": {
-    "abort-controller": "^1.0.2"
+    "abort-controller": "^3.0.0"
   },
   "devDependencies": {
-    "chai": "^4.1.2",
+    "chai": "^4.3.0",
     "chai-as-promised": "^7.1.1",
-    "eslint": "^5.0.1",
-    "eslint-plugin-mocha-no-only": "^1.0.0",
-    "eslint-plugin-node": "^6.0.1",
-    "eslint-plugin-prettier": "^2.6.1",
-    "mocha": "^5.2.0",
-    "mocha-parallel-tests": "^2.0.6-alpha.3",
-    "node-fetch": "^2.3.0",
-    "prettier": "^1.5.2",
-    "throat": "^4.1.0"
+    "eslint": "^7.20.0",
+    "eslint-plugin-mocha-no-only": "^1.1.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.3.1",
+    "mocha": "^8.3.0",
+    "node-fetch": "^2.6.1",
+    "prettier": "^2.2.1",
+    "throat": "^6.0.1"
   }
 }

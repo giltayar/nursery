@@ -8,9 +8,9 @@ chai.use(require('chai-as-promised'))
 
 const Nursery = require('../..')
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-describe('nursery', function() {
+describe('nursery', function () {
   describe('single task', () => {
     it('should throw error if bare value', async () => {
       expect(() => Nursery(4)).to.throw(/bare values/)
@@ -22,7 +22,12 @@ describe('nursery', function() {
 
     it('should throw reject on a rejected promise', async () => {
       expect(
-        await Nursery(Promise.reject(new Error('ouch')).then(v => v, err => err.message)),
+        await Nursery(
+          Promise.reject(new Error('ouch')).then(
+            (v) => v,
+            (err) => err.message,
+          ),
+        ),
       ).to.equal('ouch')
     })
 
@@ -38,12 +43,20 @@ describe('nursery', function() {
       expect(
         await Nursery(() => {
           throw new Error('ouch')
-        }).then(v => v, err => err.message),
+        }).then(
+          (v) => v,
+          (err) => err.message,
+        ),
       ).to.equal('ouch')
     })
     it('should throw reject on a thrown error task', async () => {
       expect(
-        await Nursery(() => Promise.reject(new Error('ouch')).then(v => v, err => err.message)),
+        await Nursery(() =>
+          Promise.reject(new Error('ouch')).then(
+            (v) => v,
+            (err) => err.message,
+          ),
+        ),
       ).to.equal('ouch')
     })
 
@@ -70,19 +83,25 @@ describe('nursery', function() {
       expect(
         await Nursery(({nurse, supervisor}) => {
           supervisor(Nursery.timeoutTask(10))
-          nurse(() => delay(20).then(_ => 4))
+          nurse(() => delay(20).then((_) => 4))
 
           return 7
-        }).then(v => v, err => err.message),
+        }).then(
+          (v) => v,
+          (err) => err.message,
+        ),
       ).to.contain('Timeout')
 
       expect(
         await Nursery(({nurse, supervisor}) => {
           supervisor(Nursery.timeoutTask(20))
-          nurse(() => delay(10).then(_ => 4))
+          nurse(() => delay(10).then((_) => 4))
 
           return 7
-        }).then(v => v, err => err.message),
+        }).then(
+          (v) => v,
+          (err) => err.message,
+        ),
       ).to.eql([undefined, 4, 7])
     })
 
@@ -143,7 +162,7 @@ describe('nursery', function() {
       let thirdDone = false
 
       await expect(
-        (async function() {
+        (async function () {
           for await (const {nurse} of Nursery()) {
             nurse(() => delay(10).then(() => (firstDone = true)))
             nurse(() => delay(20).then(() => (secondDone = true)))
@@ -189,12 +208,15 @@ describe('nursery', function() {
 
       expect(
         await Nursery([
-          delay(30).then(_ => Promise.reject(new Error('rejected again'))),
-          delay(20).then(_ => (firstDone = true)),
+          delay(30).then((_) => Promise.reject(new Error('rejected again'))),
+          delay(20).then((_) => (firstDone = true)),
           delay(10).then(() => Promise.reject(new Error('rejected!'))),
-        ]).then(v => v, err => err),
+        ]).then(
+          (v) => v,
+          (err) => err,
+        ),
       ).to.satisfy(
-        err =>
+        (err) =>
           err.message === 'rejected!' &&
           err[Nursery.moreErrors].length === 1 &&
           err[Nursery.moreErrors][0].message === 'rejected again',
@@ -228,10 +250,10 @@ describe('nursery', function() {
 
       // `throat(1)` ensures sequential execution
       for await (const {nurse} of Nursery({execution: throat(1)})) {
-        nurse(() => delay(20).then(_ => results.push(1)))
-        nurse(() => delay(10).then(_ => results.push(2)))
-        nurse(() => delay(5).then(_ => results.push(3)))
-        nurse(() => delay(30).then(_ => results.push(4)))
+        nurse(() => delay(20).then((_) => results.push(1)))
+        nurse(() => delay(10).then((_) => results.push(2)))
+        nurse(() => delay(5).then((_) => results.push(3)))
+        nurse(() => delay(30).then((_) => results.push(4)))
       }
 
       expect(results).to.eql([1, 2, 3, 4])
@@ -243,7 +265,7 @@ describe('nursery', function() {
       let result
       for await (const {nurse, supervisor} of Nursery()) {
         supervisor(Nursery.timeoutTask(100, {name: 'lalala'}))
-        nurse(delay(10).then(_ => (result = 42)))
+        nurse(delay(10).then((_) => (result = 42)))
       }
 
       expect(result).to.equal(42)
@@ -256,7 +278,7 @@ describe('nursery', function() {
         for await (const {nurse, supervisor} of Nursery()) {
           supervisor(Nursery.timeoutTask(10, {name: 'lalala'}))
 
-          nurse(({signal}) => delay(20).then(_ => (alreadyAborted = signal.aborted)))
+          nurse(({signal}) => delay(20).then((_) => (alreadyAborted = signal.aborted)))
         }
         expect.fail('should have thrown an exception')
       } catch (err) {
