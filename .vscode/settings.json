@@ -9,5 +9,8 @@
     "decoration": false,
     "autoUpdateTime": 5000,
     "showDebugTestStatus": false
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   }
 }

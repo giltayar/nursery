@@ -119,6 +119,15 @@ describe('error handling', () => {
       expect(secondDone).to.be.true
     })
 
+    it('should not abort tasks in a task list prematurely', async () => {
+      expect(
+        await Nursery([
+          ({signal}) => delay(10).then((_) => signal.aborted),
+          ({signal}) => delay(10).then((_) => signal.aborted),
+        ]),
+      ).to.eql([false, false])
+    })
+
     it('should handle the case where abortController is used manually', async () => {
       expect(
         await Nursery([

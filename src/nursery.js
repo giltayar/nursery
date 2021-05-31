@@ -21,11 +21,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
   let babyTaskOptions = []
   let abortController = optionsArg.abortController || new AbortController()
 
-  let signal = abortController.signal
-
-  const argToSendToTasks = {nurse, supervisor, abortController, signal}
-
-  let retriesMutable = retries
+  const argToSendToTasks = {nurse, supervisor, abortController, signal: abortController.signal}
 
   if (taskArg) {
     return (async () => {
@@ -47,12 +43,9 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
     })()
   } else if (tasksArg) {
     return (async () => {
-      const nurseryOptions = {...optionsArg, abortController, signal, retries: 0}
       for (let i = 0; i < retries + 1; ++i) {
         closed = false
-        tasksArg
-          .map((task) => Nursery(task, {...nurseryOptions}))
-          .forEach((promise) => nurse(promise))
+        tasksArg.forEach((promise) => nurse(promise))
 
         const [err, v] = await finalize().then(
           (v) => [undefined, v],
@@ -68,15 +61,16 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
       }
     })()
   } else {
+    let retriesMutable = retries
     return {
       [Symbol.asyncIterator]() {
         return {
           loopI: 0,
           next() {
-            ++this.loopI
+            this.loopI++
             if (this.loopI === 1) {
               return Promise.resolve({value: argToSendToTasks})
-            } else if (this.loopI >= 2 && retriesMutable > 0) {
+            } else if (retriesMutable > 0) {
               return finalizeGenerator().catch((err) =>
                 retriesMutable-- === 0
                   ? Promise.reject(err)
@@ -84,7 +78,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
                       Promise.resolve({value: argToSendToTasks}),
                     ),
               )
-            } else if (this.loopI >= 2 && retriesMutable === 0) {
+            } else {
               return finalizeGenerator()
             }
           },
@@ -151,13 +145,21 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
           ...promises.map((p, i) =>
             babyTaskOptions[i].waitForIt
               ? new Promise((resolve) => {
-                  if (signal.aborted) resolve()
-                  signal.addEventListener('abort', (_) => resolve())
+                  const signal = abortController.signal
+                  if (signal.aborted) {
+                    resolve()
+                  } else {
+                    const onAbort = () => {
+                      signal.removeEventListener('abort', onAbort)
+                      resolve()
+                    }
+                    signal.addEventListener('abort', onAbort)
+                  }
                 })
               : p,
           ),
         ]
-    const babyResults = Array()
+    const babyResults = []
     const promisesToBeDoneCount =
       promises.length - (forceWaiting ? 0 : babyTaskOptions.filter((o) => !o.waitForIt).length)
     let promisesDoneCount = 0
@@ -242,10 +244,7 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
     return waitForAllPromisesEvenIfOneThrows(babyPromises).finally(() => {
       babyPromises = []
       babyTaskOptions = []
-
       abortController = new AbortController()
-      signal = abortController.signal
-      Object.assign(nurse, {abortController, signal, run: nurse})
     })
   }
 
