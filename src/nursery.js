@@ -47,12 +47,9 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
     })()
   } else if (tasksArg) {
     return (async () => {
-      const nurseryOptions = {...optionsArg, abortController, signal, retries: 0}
       for (let i = 0; i < retries + 1; ++i) {
         closed = false
-        tasksArg
-          .map((task) => Nursery(task, {...nurseryOptions}))
-          .forEach((promise) => nurse(promise))
+        tasksArg.forEach((promise) => nurse(promise))
 
         const [err, v] = await finalize().then(
           (v) => [undefined, v],
