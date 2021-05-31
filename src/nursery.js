@@ -148,8 +148,16 @@ function Nursery(tasksOrOptions = {}, options = undefined) {
           ...promises.map((p, i) =>
             babyTaskOptions[i].waitForIt
               ? new Promise((resolve) => {
-                  if (signal.aborted) resolve()
-                  signal.addEventListener('abort', (_) => resolve())
+                  const signal = abortController.signal
+                  if (signal.aborted) {
+                    resolve()
+                  } else {
+                    const onAbort = () => {
+                      signal.removeEventListener('abort', onAbort)
+                      resolve()
+                    }
+                    signal.addEventListener('abort', onAbort)
+                  }
                 })
               : p,
           ),
